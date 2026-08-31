@@ -1,0 +1,18 @@
+{
+  "name": "nanoverse",
+  "version": "1.0.0",
+  "description": "Browser visualizations for learning molecular biology — ClojureScript (Squint) + Babylon.js",
+  "private": true,
+  "scripts": {
+    "build": "npm run compile && npm run bundle",
+    "compile": "squint compile",
+    "bundle": "esbuild out/nanoverse/main.mjs --bundle --format=iife --outfile=web/js/deck.js",
+    "watch": "npm run build && (trap 'kill 0' INT; squint watch & npm run bundle -- --watch=forever & wait)",
+    "serve": "python3 -m http.server 8000 --directory web",
+    "clean": "rm -rf out web/js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "squint-cljs": "^0.14.208"
+  }
+}
