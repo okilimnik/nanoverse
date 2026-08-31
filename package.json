@@ -6,7 +6,7 @@
   "scripts": {
     "build": "npm run compile && npm run bundle",
     "compile": "squint compile",
-    "bundle": "esbuild out/nanoverse/hydration_console/babylon_core.mjs --bundle --format=iife --outfile=web/js/hydration-console.js",
+    "bundle": "esbuild out/nanoverse/main.mjs --bundle --format=iife --outfile=web/js/deck.js",
     "watch": "npm run build && (trap 'kill 0' INT; squint watch & npm run bundle -- --watch=forever & wait)",
     "serve": "python3 -m http.server 8000 --directory web",
     "clean": "rm -rf out web/js"

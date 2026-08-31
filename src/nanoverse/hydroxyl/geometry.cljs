@@ -1,6 +1,7 @@
-(ns nanoverse.hydration-console.geometry)
+(ns nanoverse.hydroxyl.geometry
+  (:require [nanoverse.vec3 :as v]))
 
-;; Pure chemistry/physics for the hydration-console scene -- no rendering
+;; Pure chemistry/physics for the hydroxyl scene -- no rendering
 ;; engine dependency at all. Extracted verbatim from core.cljs (the Zdog
 ;; version) so both engines render the exact same molecule. See that
 ;; file's original comments for the chemistry rationale; kept here too
@@ -25,23 +26,12 @@
    :H8 {:x -2.1420 :y -0.4240 :z 0.0000}   ; on C2
    :H9 {:x 1.9860 :y -0.1370 :z 0.0000}})  ; hydroxyl H, on O
 
-;; vector helpers ---------------------------------------------------------
-(defn add [a b] {:x (+ (:x a) (:x b)) :y (+ (:y a) (:y b)) :z (+ (:z a) (:z b))})
-(defn sub [a b] {:x (- (:x a) (:x b)) :y (- (:y a) (:y b)) :z (- (:z a) (:z b))})
-(defn scale [a s] {:x (* (:x a) s) :y (* (:y a) s) :z (* (:z a) s)})
-(defn vdot [a b] (+ (* (:x a) (:x b)) (* (:y a) (:y b)) (* (:z a) (:z b))))
-(defn vcross [a b]
-  {:x (- (* (:y a) (:z b)) (* (:z a) (:y b)))
-   :y (- (* (:z a) (:x b)) (* (:x a) (:z b)))
-   :z (- (* (:x a) (:y b)) (* (:y a) (:x b)))})
-(defn vlen [a] (js/Math.sqrt (vdot a a)))
-(defn vnorm [a] (let [l (or (vlen a) 1)] {:x (/ (:x a) l) :y (/ (:y a) l) :z (/ (:z a) l)}))
 
 ;; recenter ethanol on its own centroid so the illustration sits at (0,0,0)
 (def eth-keys (keys eth-raw))
 (def eth
-  (let [centroid (scale (reduce add {:x 0 :y 0 :z 0} (vals eth-raw)) (/ 1 (count eth-raw)))]
-    (into {} (for [k eth-keys] [k (sub (get eth-raw k) centroid)]))))
+  (let [centroid (v/scale (reduce v/add {:x 0 :y 0 :z 0} (vals eth-raw)) (/ 1 (count eth-raw)))]
+    (into {} (for [k eth-keys] [k (v/sub (get eth-raw k) centroid)]))))
 
 (def eth-bonds
   [[:C1 :C2] [:C1 :O] [:C1 :H4] [:C1 :H5]
@@ -55,18 +45,18 @@
 ;; the donor.
 ;; ---------------------------------------------------------------------
 (defn build-basis [away-dir]
-  (let [e1 (scale away-dir -1) ; points back toward ethanol O
+  (let [e1 (v/scale away-dir -1) ; points back toward ethanol O
         ref (if (> (js/Math.abs (:y e1)) 0.9) {:x 1 :y 0 :z 0} {:x 0 :y 1 :z 0})
-        e2 (vnorm (vcross e1 ref))]
+        e2 (v/norm (v/cross e1 ref))]
     {:e1 e1 :e2 e2}))
 
 (defn water-atoms [basis]
-  (let [h1 (scale (:e1 basis) OH-LEN)
-        h2 (add (scale (:e1 basis) (* (js/Math.cos HOH-ANGLE) OH-LEN))
-                (scale (:e2 basis) (* (js/Math.sin HOH-ANGLE) OH-LEN)))]
+  (let [h1 (v/scale (:e1 basis) OH-LEN)
+        h2 (v/add (v/scale (:e1 basis) (* (js/Math.cos HOH-ANGLE) OH-LEN))
+                (v/scale (:e2 basis) (* (js/Math.sin HOH-ANGLE) OH-LEN)))]
     {:O {:x 0 :y 0 :z 0} :H1 h1 :H2 h2}))
 
-(def acceptor-dir (vnorm (sub (:H9 eth) (:O eth))))
+(def acceptor-dir (v/norm (v/sub (:H9 eth) (:O eth))))
 
 ;; O...O set so the *resting* donor-H...O distance sits just inside the
 ;; 2.5 A cutoff (see dist-limit below) -- close enough that the default
@@ -74,12 +64,12 @@
 ;; instead of sitting on permanently. Angle is ~180 deg by construction
 ;; regardless of this distance (see build-basis/water-atoms above).
 (def water-defs
-  [{:name "donor_1" :away (vnorm {:x -0.7 :y -0.9 :z 0.5}) :oo 3.26}
-   {:name "donor_2" :away (vnorm {:x -0.9 :y 0.6 :z -0.4}) :oo 3.34}
+  [{:name "donor_1" :away (v/norm {:x -0.7 :y -0.9 :z 0.5}) :oo 3.26}
+   {:name "donor_2" :away (v/norm {:x -0.9 :y 0.6 :z -0.4}) :oo 3.34}
    {:name "acceptor" :away acceptor-dir :oo 3.06}
-   {:name "tail_1" :away (vnorm {:x 0.3 :y 0.9 :z 0.8}) :oo 3.6}
-   {:name "tail_2" :away (vnorm {:x 0.9 :y 0.7 :z -0.6}) :oo 4.2}
-   {:name "tail_3" :away (vnorm {:x -0.2 :y -0.3 :z -1.0}) :oo 5.0}])
+   {:name "tail_1" :away (v/norm {:x 0.3 :y 0.9 :z 0.8}) :oo 3.6}
+   {:name "tail_2" :away (v/norm {:x 0.9 :y 0.7 :z -0.6}) :oo 4.2}
+   {:name "tail_3" :away (v/norm {:x -0.2 :y -0.3 :z -1.0}) :oo 5.0}])
 
 ;; seeded PRNG so the wobble is fixed across reloads but decorrelated
 ;; per water / axis / term
@@ -99,7 +89,7 @@
          (fn [wd]
            (let [basis (build-basis (:away wd))
                  local (water-atoms basis)
-                 base-o (add (:O eth) (scale (:away wd) (:oo wd)))
+                 base-o (v/add (:O eth) (v/scale (:away wd) (:oo wd)))
                  wobble (vec (repeatedly 3
                                (fn []
                                  [{:freq (+ 0.6 (* (rng) 0.5)) :phase (* (rng) js/Math.PI 2) :amp 0.62}
@@ -132,6 +122,6 @@
 
 (defn compute-current [w t amp]
   (let [j (jitter-for w t)
-        o (add (:base-o w) (scale j amp))
+        o (v/add (:base-o w) (v/scale j amp))
         local (:local w)]
-    {:O o :H1 (add o (:H1 local)) :H2 (add o (:H2 local))}))
+    {:O o :H1 (v/add o (:H1 local)) :H2 (v/add o (:H2 local))}))

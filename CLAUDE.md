@@ -23,8 +23,8 @@ watch the consequence.
 
 ## Web visualizations
 
-Standalone browser visualizations live under `web/`, one HTML file per
-visualization at the top level. They are written in **ClojureScript**, compiled
+Visualizations are slides in a single deck: **one** page, `web/index.html`,
+with arrow / dot / keyboard navigation between slides. They are written in **ClojureScript**, compiled
 with **Squint** (`squint-cljs` — a lightweight CLJS-to-JS compiler that runs on
 plain Node, no JVM), and rendered with **Babylon.js** (loaded from cdnjs as a
 classic global script exposing `window.BABYLON` — the plain-`<script src>`
@@ -37,8 +37,8 @@ sit at the top level, so `npm run build` works from wherever you cloned to.
 
 - `squint.edn` — compiles every `.cljs` under `src/` in one pass into `out/`.
 - `package.json` — `npm run build` = `compile` (squint) then `bundle` (esbuild
-  `--bundle --format=iife`, one entry-point namespace per page, output into
-  `web/js/`). The IIFE format matters: a built page is a plain
+  `--bundle --format=iife` over `nanoverse.main`, into `web/js/deck.js`). One
+  bundle for the whole deck. The IIFE format matters: the page is a plain
   `<script src>` with no `<script type="module">` and no import maps, so it
   still opens directly via `file://` like any static HTML file.
 - `npm run watch` runs squint and esbuild together, so `web/js/` stays fresh on
@@ -54,14 +54,31 @@ sit at the top level, so `npm run build` works from wherever you cloned to.
   parts (scene/camera/mesh construction, the per-frame render loop). Keeping
   these separate means the same verified chemistry can be re-pointed at a
   different renderer later without touching the math.
+- `nanoverse/vec3.cljs` — shared vector and quaternion helpers. Every
+  `geometry.cljs` builds on it rather than re-deriving `add`/`sub`/`cross`;
+  add new general-purpose math here, not in a topic namespace. Quaternions
+  exist so a rotating body's geometry and its rendered transform are handed
+  the *same four numbers* and cannot disagree about Euler-angle ordering.
+
+- `nanoverse/deck.cljs` — shared Babylon helpers plus the slide navigation.
+  Knows nothing about any specific slide, which is what keeps it free of a
+  require cycle; `nanoverse/main.cljs` is the single entry point that pairs the
+  deck with its slide list.
+- A slide's `babylon_core.cljs` exposes **`(build prefix)`** and does nothing at
+  module load. It creates its own engine on its own canvas and returns a handle
+  via `deck/slide-handle`. Slides are built lazily on first visit, and only the
+  visible one runs a render loop or holds the camera's pointer control —
+  otherwise two cameras fight over the same drag.
+- Every DOM id inside a slide is namespaced by that slide's prefix (`oh-amp`,
+  `ald-amp`), since all slides share one document.
 
 Generated output (`out/`, `web/js/`) is gitignored — a fresh clone must run
 `npm install && npm run build` before any page will render.
 
-To add a new visualization: new `src/nanoverse/<topic>/geometry.cljs` +
-`babylon_core.cljs`, a new `web/<topic>.html` shell (copy an existing one's
-CSS/DOM, point its script tags at Babylon's cdnjs URL and the new bundle), and
-one more `esbuild` line in `package.json`'s `bundle` script.
+To add a slide: new `src/nanoverse/<topic>/geometry.cljs` + `babylon_core.cljs`
+exposing `build`, a `<section class="slide" id="slide-<topic>">` in
+`web/index.html` with prefixed ids, and one more entry in `nanoverse.main`'s
+slide vector. The bundle script doesn't change — there is only one bundle.
 
 ### Babylon specifics to know
 
@@ -84,6 +101,14 @@ one more `esbuild` line in `package.json`'s `bundle` script.
 
 ### Squint gotchas
 
+- **`dotimes` does not give each iteration its own binding.** It compiles to a
+  single `let i = 0` hoisted *outside* the loop, so any closure created inside
+  the body captures the shared variable and sees its **final** value once the
+  loop finishes. Registering event handlers in a `dotimes` therefore wires every
+  one of them to the last index — an off-by-N that only shows up when the
+  handler fires, never at build time. Pass the index through a **function
+  parameter** (a real fresh binding per call) when a closure needs to keep it.
+  This bit the deck's slide-dot handlers; `nanoverse.deck/bind-dot!` is the fix.
 - Squint's maps/vectors are **plain JS objects with a copy-on-write `assoc`/
   `conj` layered on top, not real persistent data structures** — correctness
   is fine (originals are never mutated, `=` does structural equality) but
