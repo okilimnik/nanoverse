@@ -5,6 +5,9 @@ Standalone browser visualizations for learning molecular biology — built to be
 (compiled with [Squint](https://github.com/squint-cljs/squint)) and rendered
 with [Babylon.js](https://www.babylonjs.com/).
 
+**▶ [Open the deck](https://okilimnik.github.io/nanoverse/)** — the live build,
+nothing to install. Everything below is for running or changing it locally.
+
 One page, `web/index.html`, holding a **deck of slides** you move through with
 the on-screen arrows, the dots, or the ← → keys. Two slides so far, both about
 the same question — *what does water do around a small polar molecule?* —
@@ -20,7 +23,8 @@ approached from opposite sides:
 
 ## Quick start
 
-Build output is **not** committed, so build once, then open the page:
+To run it yourself — which you need for editing, but not for looking — build
+once, then open the page. Build output is **not** committed:
 
 ```sh
 npm install
@@ -215,6 +219,7 @@ reloading a stale bundle.)
 ```
 package.json                       scripts: build / compile / bundle / watch / serve / clean
 squint.edn                         compiles everything under src/ in one pass
+.github/workflows/pages.yml        builds + publishes web/ to GitHub Pages
 src/nanoverse/
   main.cljs                        entry point: the slide list
   deck.cljs                        slide navigation + shared Babylon helpers
@@ -256,6 +261,18 @@ Chemical Component Dictionary ideal structure for ethanol (`EOH`) and a
 PubChem conformer for acetaldehyde, with water at standard gas-phase geometry (O–H
 0.9572 Å, H–O–H 104.5°). Nothing is fetched at runtime — the files under
 `structures/` are checked in for provenance, not loaded by any page.
+
+### Deploying
+
+Pushing to `master` publishes the deck to
+[GitHub Pages](https://okilimnik.github.io/nanoverse/) via
+`.github/workflows/pages.yml`. Since `web/js/` is gitignored, CI runs the same
+`npm ci && npm run build` you would run locally and uploads `web/` as the Pages
+artifact — the deployed site is always built from source, and no generated file
+is ever committed.
+
+The repo's Pages source has to be set to **GitHub Actions** (not "deploy from a
+branch") or `configure-pages` fails with a 404.
 
 ---
 
