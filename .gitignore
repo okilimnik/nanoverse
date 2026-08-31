@@ -1,5 +1,3 @@
 .DS_Store
-*.blend1
-*.blend2
-*.MNSession
 .agent-shell/
+node_modules/
