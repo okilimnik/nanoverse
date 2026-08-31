@@ -32,24 +32,36 @@ build, not an ES module).
 
 ### Toolchain
 
-Everything lives in `web/cljs/`:
-- `squint.edn` — compiles every `.cljs` file under `src/` in one pass.
-- `package.json` — `npm run build` runs `squint compile`, then bundles each
-  entry-point namespace with `esbuild --bundle --format=iife` into its own file
-  under `dist/`. The output is a single plain script per page — no
-  `<script type="module">`, no import maps — so a built page still opens
-  directly via `file://`, same as any other static HTML file.
-- `src/<topic>/geometry.cljs` — pure chemistry/physics data and math for a
-  given visualization, with **zero rendering-engine dependency**.
-  `src/<topic>/babylon_core.cljs` `:require`s it and does only the
-  Babylon-specific parts (scene/camera/mesh construction, the per-frame render
-  loop). Keeping these separate means the same verified chemistry can be
-  re-pointed at a different renderer later without touching the math.
+The npm project is the repo root — `package.json`, `squint.edn`, and `src/` all
+sit at the top level, so `npm run build` works from wherever you cloned to.
 
-To add a new visualization: new `<topic>/geometry.cljs` + `<topic>/babylon_core.cljs`
-under `web/cljs/src/`, a new `web/<topic>.html` shell (copy an existing one's
+- `squint.edn` — compiles every `.cljs` under `src/` in one pass into `out/`.
+- `package.json` — `npm run build` = `compile` (squint) then `bundle` (esbuild
+  `--bundle --format=iife`, one entry-point namespace per page, output into
+  `web/js/`). The IIFE format matters: a built page is a plain
+  `<script src>` with no `<script type="module">` and no import maps, so it
+  still opens directly via `file://` like any static HTML file.
+- `npm run watch` runs squint and esbuild together, so `web/js/` stays fresh on
+  every save. `npm run serve` serves `web/` over HTTP; `npm run clean` drops
+  both generated dirs.
+- Sources are namespaced under `nanoverse.<topic>.*`, so
+  `src/nanoverse/<topic>/geometry.cljs` is `nanoverse.<topic>.geometry`
+  (note Squint, like ClojureScript, maps the `-` in a namespace segment to `_`
+  in the directory name).
+- `<topic>/geometry.cljs` — pure chemistry/physics data and math for a given
+  visualization, with **zero rendering-engine dependency**.
+  `<topic>/babylon_core.cljs` `:require`s it and does only the Babylon-specific
+  parts (scene/camera/mesh construction, the per-frame render loop). Keeping
+  these separate means the same verified chemistry can be re-pointed at a
+  different renderer later without touching the math.
+
+Generated output (`out/`, `web/js/`) is gitignored — a fresh clone must run
+`npm install && npm run build` before any page will render.
+
+To add a new visualization: new `src/nanoverse/<topic>/geometry.cljs` +
+`babylon_core.cljs`, a new `web/<topic>.html` shell (copy an existing one's
 CSS/DOM, point its script tags at Babylon's cdnjs URL and the new bundle), and
-one more `esbuild` line in `package.json`'s `build` script.
+one more `esbuild` line in `package.json`'s `bundle` script.
 
 ### Babylon specifics to know
 

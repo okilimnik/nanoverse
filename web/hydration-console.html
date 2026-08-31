@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hydration Console</title>
+<title>Hydration Console (Babylon.js)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -91,7 +91,7 @@
     justify-content: center;
     touch-action: none;
   }
-  .zdog-canvas{
+  .render-canvas{
     display: block;
     width: 100%;
     max-width: 620px;
@@ -99,7 +99,7 @@
     aspect-ratio: 1 / 1;
     cursor: grab;
   }
-  .zdog-canvas:active{ cursor: grabbing; }
+  .render-canvas:active{ cursor: grabbing; }
 
   .readout{
     position: absolute;
@@ -267,7 +267,7 @@
 </style>
 
 <div class="page">
-  <p class="eyebrow">Molecular Nodes → Zdog port</p>
+  <p class="eyebrow">Molecular Nodes → ClojureScript (Squint) → Babylon.js</p>
   <h1>Hydration Console</h1>
   <p class="subtitle">
     One ethanol molecule, six water molecules, and the same distance-and-angle
@@ -280,7 +280,7 @@
 <main>
   <section class="stage-panel">
     <div class="stage-frame">
-      <canvas class="zdog-canvas" width="620" height="620"></canvas>
+      <canvas class="render-canvas" id="render-canvas" width="620" height="620"></canvas>
       <div class="readout">
         <div><span class="lbl">H-BONDS ACTIVE </span><span class="num" id="readout-count">0</span></div>
         <div><span class="lbl">NEAREST D&middot;&middot;&middot;A </span><span class="num" id="readout-dist">&mdash;</span></div>
@@ -335,291 +335,5 @@
   </section>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/zdog@1.1.3/dist/zdog.dist.min.js"></script>
-<script>
-(function(){
-  "use strict";
-
-  // ---------------------------------------------------------------------
-  // Real geometry, in angstroms. Ethanol: RCSB Chemical Component
-  // Dictionary ideal coordinates (EOH). Water: standard gas-phase
-  // geometry (O-H 0.9572 A, H-O-H 104.5 deg).
-  // ---------------------------------------------------------------------
-  var PX_PER_A = 42;
-  var OH_LEN = 0.9572;
-  var HOH_ANGLE = 104.5 * Math.PI / 180;
-
-  var ethRaw = {
-    C1:  {x:  0.0070, y: -0.5690, z:  0.0000},
-    C2:  {x: -1.2850, y:  0.2500, z:  0.0000},
-    O:   {x:  1.1300, y:  0.3150, z:  0.0000},
-    H4:  {x:  0.0390, y: -1.1970, z:  0.8900}, // on C1
-    H5:  {x:  0.0390, y: -1.1970, z: -0.8900}, // on C1
-    H6:  {x: -1.3170, y:  0.8780, z:  0.8900}, // on C2
-    H7:  {x: -1.3170, y:  0.8780, z: -0.8900}, // on C2
-    H8:  {x: -2.1420, y: -0.4240, z:  0.0000}, // on C2
-    H9:  {x:  1.9860, y: -0.1370, z:  0.0000}  // hydroxyl H, on O
-  };
-
-  // vector helpers -------------------------------------------------------
-  function add(a,b){ return {x:a.x+b.x, y:a.y+b.y, z:a.z+b.z}; }
-  function sub(a,b){ return {x:a.x-b.x, y:a.y-b.y, z:a.z-b.z}; }
-  function scale(a,s){ return {x:a.x*s, y:a.y*s, z:a.z*s}; }
-  function dot(a,b){ return a.x*b.x + a.y*b.y + a.z*b.z; }
-  function cross(a,b){ return {x:a.y*b.z-a.z*b.y, y:a.z*b.x-a.x*b.z, z:a.x*b.y-a.y*b.x}; }
-  function len(a){ return Math.sqrt(dot(a,a)); }
-  function norm(a){ var l = len(a) || 1; return {x:a.x/l, y:a.y/l, z:a.z/l}; }
-  function toPx(a){ return {x:a.x*PX_PER_A, y:a.y*PX_PER_A, z:a.z*PX_PER_A}; }
-
-  // recenter ethanol on its own centroid so the illustration sits at (0,0,0)
-  var keys = Object.keys(ethRaw);
-  var centroid = keys.reduce(function(acc,k){ return add(acc, ethRaw[k]); }, {x:0,y:0,z:0});
-  centroid = scale(centroid, 1/keys.length);
-  var eth = {};
-  keys.forEach(function(k){ eth[k] = sub(ethRaw[k], centroid); });
-
-  var ethBonds = [
-    ["C1","C2"], ["C1","O"], ["C1","H4"], ["C1","H5"],
-    ["C2","H6"], ["C2","H7"], ["C2","H8"], ["O","H9"]
-  ];
-
-  // ---------------------------------------------------------------------
-  // Water placement: each water's local +e1 axis is aimed back at
-  // ethanol's oxygen, so its first hydrogen is built already pointing the
-  // "right" way for a linear donor...acceptor geometry. water_acceptor
-  // instead reuses ethanol's own O-H9 direction, since there ethanol is
-  // the donor.
-  // ---------------------------------------------------------------------
-  function buildBasis(awayDir){
-    var e1 = scale(awayDir, -1); // points back toward ethanol O
-    var ref = Math.abs(e1.y) > 0.9 ? {x:1,y:0,z:0} : {x:0,y:1,z:0};
-    var e2 = norm(cross(e1, ref));
-    return {e1: e1, e2: e2};
-  }
-
-  function waterAtoms(basis){
-    var h1 = scale(basis.e1, OH_LEN);
-    var h2 = add(scale(basis.e1, Math.cos(HOH_ANGLE)*OH_LEN), scale(basis.e2, Math.sin(HOH_ANGLE)*OH_LEN));
-    return {O: {x:0,y:0,z:0}, H1: h1, H2: h2};
-  }
-
-  var acceptorDir = norm(sub(eth.H9, eth.O));
-
-  // O...O set so the *resting* donor-H...O distance sits just inside the
-  // 2.5 A cutoff (see DIST_LIMIT below) -- close enough that the default
-  // jitter amplitude carries it back out again, so bonds actually flicker
-  // instead of sitting on permanently. Angle is ~180 deg by construction
-  // regardless of this distance (see buildBasis/waterAtoms above).
-  var waterDefs = [
-    {name:"donor_1",  away: norm({x:-0.7, y:-0.9, z: 0.5}), oo: 3.26},
-    {name:"donor_2",  away: norm({x:-0.9, y: 0.6, z:-0.4}), oo: 3.34},
-    {name:"acceptor", away: acceptorDir,                     oo: 3.06},
-    {name:"tail_1",   away: norm({x: 0.3, y: 0.9, z: 0.8}), oo: 3.6},
-    {name:"tail_2",   away: norm({x: 0.9, y: 0.7, z:-0.6}), oo: 4.2},
-    {name:"tail_3",   away: norm({x:-0.2, y:-0.3, z:-1.0}), oo: 5.0}
-  ];
-
-  // seeded PRNG so the wobble is fixed across reloads but decorrelated
-  // per water / axis / term
-  function mulberry32(seed){
-    return function(){
-      seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
-      var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-  var rand = mulberry32(20260830);
-
-  var waters = waterDefs.map(function(def, i){
-    var basis = buildBasis(def.away);
-    var local = waterAtoms(basis);
-    var baseO = add(eth.O, scale(def.away, def.oo));
-    var wobble = ["x","y","z"].map(function(){
-      return [
-        {freq: 0.6 + rand()*0.5, phase: rand()*Math.PI*2, amp: 0.62},
-        {freq: 1.3 + rand()*0.9, phase: rand()*Math.PI*2, amp: 0.38}
-      ];
-    });
-    return {name: def.name, basis: basis, local: local, baseO: baseO, wobble: wobble};
-  });
-
-  function jitterFor(water, t){
-    var axes = ["x","y","z"];
-    var out = {x:0,y:0,z:0};
-    axes.forEach(function(ax, i){
-      var terms = water.wobble[i];
-      var v = 0;
-      terms.forEach(function(term){
-        v += term.amp * Math.sin(t*term.freq + term.phase);
-      });
-      out[ax] = v;
-    });
-    return out;
-  }
-
-  // candidate hydrogen-bond pairs, mirroring the Blender overlay: every
-  // water gets checked as donor (both H's) and as acceptor.
-  var pairs = [];
-  waters.forEach(function(w, i){
-    pairs.push({donor: i, donorAtom: "H1", acceptor: null});
-    pairs.push({donor: i, donorAtom: "H2", acceptor: null});
-    pairs.push({donor: null, donorAtom: "H9", acceptor: i});
-  });
-
-  // ---------------------------------------------------------------------
-  // Zdog scene
-  // ---------------------------------------------------------------------
-  var canvas = document.querySelector(".zdog-canvas");
-  var illo = new Zdog.Illustration({
-    element: canvas,
-    zoom: 1.6,
-    dragRotate: true,
-    rotate: {x: -0.28, y: 0.55}
-  });
-
-  var R = {C: 15, O: 16, H: 9};
-  var COLOR = {C: "#4b4f58", O: "#e2555a", H: "#eef1f4", bond: "#9aa5b1", hbond: "#59e0c9"};
-
-  function element(name){ return name.charAt(0); } // "C1"->"C", "H4"->"H", "O"->"O"
-
-  // ethanol, static
-  var ethGroup = new Zdog.Anchor({ addTo: illo });
-  keys.forEach(function(k){
-    var el = element(k);
-    new Zdog.Shape({
-      addTo: ethGroup,
-      translate: toPx(eth[k]),
-      stroke: R[el],
-      color: COLOR[el]
-    });
-  });
-  ethBonds.forEach(function(pair){
-    new Zdog.Shape({
-      addTo: ethGroup,
-      path: [toPx(eth[pair[0]]), toPx(eth[pair[1]])],
-      stroke: 6,
-      color: COLOR.bond
-    });
-  });
-
-  // waters: one Anchor per water, translated each frame; local shapes
-  // (fixed relative to that Anchor) built once.
-  waters.forEach(function(w){
-    w.anchor = new Zdog.Anchor({ addTo: illo, translate: toPx(w.baseO) });
-    new Zdog.Shape({ addTo: w.anchor, translate: toPx(w.local.O), stroke: R.O, color: COLOR.O });
-    new Zdog.Shape({ addTo: w.anchor, translate: toPx(w.local.H1), stroke: R.H, color: COLOR.H });
-    new Zdog.Shape({ addTo: w.anchor, translate: toPx(w.local.H2), stroke: R.H, color: COLOR.H });
-    new Zdog.Shape({ addTo: w.anchor, path: [toPx(w.local.O), toPx(w.local.H1)], stroke: 5, color: COLOR.bond });
-    new Zdog.Shape({ addTo: w.anchor, path: [toPx(w.local.O), toPx(w.local.H2)], stroke: 5, color: COLOR.bond });
-  });
-
-  var tubes = pairs.map(function(){
-    return new Zdog.Shape({
-      addTo: illo,
-      path: [{x:0,y:0,z:0}, {x:0,y:0,z:0}],
-      stroke: 5,
-      color: COLOR.hbond,
-      visible: false
-    });
-  });
-
-  // ---------------------------------------------------------------------
-  // controls
-  // ---------------------------------------------------------------------
-  var ampInput = document.getElementById("amp");
-  var speedInput = document.getElementById("speed");
-  var ampValue = document.getElementById("amp-value");
-  var speedValue = document.getElementById("speed-value");
-  var playToggle = document.getElementById("play-toggle");
-  var readoutCount = document.getElementById("readout-count");
-  var readoutDist = document.getElementById("readout-dist");
-
-  var amplitude = parseFloat(ampInput.value);
-  var speed = parseFloat(speedInput.value);
-  ampInput.addEventListener("input", function(){
-    amplitude = parseFloat(ampInput.value);
-    ampValue.textContent = amplitude.toFixed(2) + " Å";
-  });
-  speedInput.addEventListener("input", function(){
-    speed = parseFloat(speedInput.value);
-    speedValue.textContent = speed.toFixed(1) + "×";
-  });
-
-  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var running = !reduceMotion;
-  playToggle.textContent = running ? "Pause" : "Play";
-  playToggle.addEventListener("click", function(){
-    running = !running;
-    playToggle.textContent = running ? "Pause" : "Play";
-  });
-
-  // ---------------------------------------------------------------------
-  // animation loop
-  // ---------------------------------------------------------------------
-  var DIST_LIMIT = 2.5;   // angstrom, donor-H...acceptor
-  var COS_LIMIT = -0.5;   // cos(120 deg): require a roughly linear D-H...A
-
-  var t0 = performance.now();
-  var tAccum = 0;
-  var lastFrame = t0;
-
-  function frame(now){
-    var dt = Math.min((now - lastFrame) / 1000, 0.05);
-    lastFrame = now;
-    if (running) tAccum += dt * speed;
-
-    waters.forEach(function(w){
-      var j = jitterFor(w, tAccum);
-      w.currentO = add(w.baseO, scale(j, amplitude));
-      w.currentH1 = add(w.currentO, w.local.H1);
-      w.currentH2 = add(w.currentO, w.local.H2);
-      w.anchor.translate.set(toPx(w.currentO));
-    });
-
-    var activeCount = 0;
-    var nearest = Infinity;
-
-    pairs.forEach(function(p, idx){
-      var H, D, A;
-      if (p.donor !== null) {
-        var w = waters[p.donor];
-        H = p.donorAtom === "H1" ? w.currentH1 : w.currentH2;
-        D = w.currentO;
-        A = eth.O;
-      } else {
-        H = eth.H9;
-        D = eth.O;
-        A = waters[p.acceptor].currentO;
-      }
-      var distVec = sub(A, H);
-      var dist = len(distVec);
-      var vecHD = norm(sub(D, H));
-      var vecHA = norm(distVec);
-      var cosAngle = dot(vecHD, vecHA);
-      var active = dist < DIST_LIMIT && cosAngle < COS_LIMIT;
-
-      var tube = tubes[idx];
-      tube.visible = active;
-      if (active) {
-        // Shape.path holds plain {x,y,z} objects, not Zdog.Vector, and
-        // Zdog only derives render geometry from it once (at construction)
-        // -- so replace the points and rebuild explicitly each frame.
-        tube.path[0] = toPx(H);
-        tube.path[1] = toPx(A);
-        tube.updatePath();
-        activeCount++;
-      }
-      if (dist < nearest) nearest = dist;
-    });
-
-    readoutCount.textContent = activeCount;
-    readoutCount.className = "num" + (activeCount === 0 ? " zero" : "");
-    readoutDist.textContent = isFinite(nearest) ? nearest.toFixed(2) + " Å" : "—";
-
-    illo.updateRenderGraph();
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-})();
-</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babylonjs/8.31.0/babylon.min.js"></script>
+<script src="js/hydration-console.js"></script>

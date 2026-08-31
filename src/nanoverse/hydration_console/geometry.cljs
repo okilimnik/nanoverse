@@ -1,4 +1,4 @@
-(ns hydration-console.geometry)
+(ns nanoverse.hydration-console.geometry)
 
 ;; Pure chemistry/physics for the hydration-console scene -- no rendering
 ;; engine dependency at all. Extracted verbatim from core.cljs (the Zdog

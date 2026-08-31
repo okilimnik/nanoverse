@@ -1,5 +1,5 @@
-(ns hydration-console.babylon-core
-  (:require [hydration-console.geometry :as geo]))
+(ns nanoverse.hydration-console.babylon-core
+  (:require [nanoverse.hydration-console.geometry :as geo]))
 
 ;; Babylon.js port of core.cljs (the Zdog version) -- same chemistry, same
 ;; wobble, same hydrogen-bond distance/angle test (all in geometry.cljs,
