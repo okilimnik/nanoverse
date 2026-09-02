@@ -72,7 +72,9 @@ sit at the top level, so `npm run build` works from wherever you cloned to.
   placement, the geometric H-bond test, `protonate`/`deprotonate`, rigid
   three-point `align`, and Henderson–Hasselbalch. A slide should never
   hand-place a water — hand-placing means the picture shows what the author
-  expected. Note the ordering inside `hydrate`: **donor waters are placed
+  expected. `place` is the escape hatch for a slide that is *deliberately*
+  calibrating its shell and says so on its face (only the hydroxyl slide, whose
+  tuned resting distances make the count breathe); reach for `hydrate` first. Note the ordering inside `hydrate`: **donor waters are placed
   before lone-pair waters**, because a donor's water has exactly one possible
   position (fixed by a measured bond direction) while a lone pair has two or
   three alternatives. Reverse that and a molecule's single acidic proton
@@ -141,6 +143,15 @@ chemistry stays the part you read.
   handler fires, never at build time. Pass the index through a **function
   parameter** (a real fresh binding per call) when a closure needs to keep it.
   This bit the deck's slide-dot handlers; `nanoverse.deck/bind-dot!` is the fix.
+- **`repeatedly` is lazy, and that silently reorders a seeded PRNG.** Written
+  inline as a map value, `(vec (repeatedly 3 #(... (rng) ...)))` can be
+  realized *after* the draws written below it in the same literal — so which
+  numbers a record gets depends on when something first reads the field, not
+  on the source order. It reproduces perfectly on reload and still isn't what
+  the code appears to say. Bind every draw in an explicit `let`, in order, when
+  the stream has to be deterministic (`nanoverse.solvent/make-water` does, and
+  says why). Bit-compare against the previous build after touching anything
+  that draws.
 - Squint's maps/vectors are **plain JS objects with a copy-on-write `assoc`/
   `conj` layered on top, not real persistent data structures** — correctness
   is fine (originals are never mutated, `=` does structural equality) but

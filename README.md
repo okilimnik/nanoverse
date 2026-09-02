@@ -166,7 +166,7 @@ same size, sat at 1. That digit is the whole alcohol/aldehyde difference.
 **Set Tumble to 0.** Both bonds lock on and stay on. Now raise it: bonds start
 dying *without the molecules moving apart* — the hydrogen swings off-axis and
 the geometry fails on angle alone. With the default seed the count runs 2.0 at
-rest, ~1.65 at the default 50°, and ~0.9 at maximum tumble with full drift.
+rest, ~1.57 at the default 50°, and ~0.85 at maximum tumble with full drift.
 
 **Look at the methyl end.** Two waters sit there and never bond — verified
 across the whole slider range, they form exactly zero bonds and never get
@@ -524,9 +524,9 @@ src/nanoverse/
   scene.cljs                       shared Babylon scene builder for the group slides
   hydroxyl/
     geometry.cljs                  chemistry + math — zero rendering dependency
-    babylon_core.cljs              Babylon scene, meshes, render loop
-  aldehyde/    …  ketone/    …  carboxyl/  …       (geometry.cljs + babylon_core.cljs
-  amino/       …  phosphate/ …  sulfhydryl/ …       for each of the eight topics)
+    babylon_core.cljs              Babylon scene wiring + this slide's readouts
+  aldehyde/    …  ketone/     …  carboxyl/   …    (the same two files for each
+  amino/       …  phosphate/  …  sulfhydryl/ …     of the eight topics)
   methyl/      …
 web/
   index.html                       the deck: CSS, all eight slides' DOM, CDN <script>
@@ -540,7 +540,7 @@ structures/                        provenance only — never loaded at runtime
   BME.cif  HED.cif  ALA.cif        mercaptoethanol, its disulfide; alanine
 ```
 
-Slides 3–8 share two more namespaces than slides 1–2 do. **`solvent.cljs`** is
+All eight slides share two namespaces beyond `vec3` and `deck`. **`solvent.cljs`** is
 the water model — lone-pair directions computed from a molecule's own
 coordinates, automatic hydration-shell placement, the geometric H-bond test,
 `protonate` / `deprotonate`, a rigid three-point `align` for states that come
@@ -555,7 +555,14 @@ The effect is that a slide's own two files stay small and stay about chemistry:
 `geometry.cljs` declares real coordinates plus what the molecule can do
 (`:acceptors`, `:donors`, `:hydrophobic`) and hands them to `solvent/hydrate`;
 `babylon_core.cljs` wires that slide's particular knob and reports the counts
-that slide cares about.
+that slide cares about. Both `babylon_core.cljs` files for slides 1–2 went from
+~200 lines to ~35 when they were re-pointed at this, and the bundle lost 24 kB.
+
+Slides 1–2 use `solvent/place` rather than `solvent/hydrate`: they keep their
+hand-placed waters, because slide 1's resting distances are *calibrated* to sit
+just inside the bond cutoff so the count visibly breathes, and that flicker is
+the lesson. It's the documented exception, not the pattern — everything else
+lets the lone-pair geometry decide.
 
 Namespaces are `nanoverse.<topic>.*`. Squint follows the ClojureScript
 convention of mapping `-` in a namespace segment to `_` in the path, so

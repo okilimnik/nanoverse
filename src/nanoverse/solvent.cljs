@@ -242,16 +242,28 @@
    :H2 (v/add (v/scale (:e1 basis) (* (js/Math.cos HOH-ANGLE) OH-LEN))
               (v/scale (:e2 basis) (* (js/Math.sin HOH-ANGLE) OH-LEN)))})
 
-(defn- make-water [rng nm site role away base-o]
-  (let [basis (build-basis away role)]
+(defn- make-water
+  "One water: its frame, its per-axis wobble, and its tumble.
+
+   Every draw is bound in an explicit `let`, in order, rather than written
+   inline in the returned map. That is not style. `repeatedly` is LAZY in
+   Squint, so a wobble built inline as a map value can be realized *after* the
+   tumble draws that follow it in the literal -- which means the numbers a
+   water gets depend on when something first reads the field. Seeded noise is
+   only reproducible if the draw order is fixed, so it is fixed here: 12 draws
+   of wobble, then 3 of tumble axis, then freq, then phase. 17 per water."
+  [rng nm site role away base-o]
+  (let [basis (build-basis away role)
+        wobble (mapv (fn [_]
+                       [{:freq (+ 0.6 (* (rng) 0.5)) :phase (* (rng) js/Math.PI 2) :amp 0.62}
+                        {:freq (+ 1.3 (* (rng) 0.9)) :phase (* (rng) js/Math.PI 2) :amp 0.38}])
+                     [0 1 2])
+        tumble-axis (v/norm {:x (- (rng) 0.5) :y (- (rng) 0.5) :z (- (rng) 0.5)})
+        tumble-freq (+ 0.5 (* (rng) 0.7))
+        tumble-phase (* (rng) js/Math.PI 2)]
     {:name nm :site site :role role :basis basis :local (water-atoms basis) :base-o base-o
-     :wobble (vec (repeatedly 3
-                    (fn []
-                      [{:freq (+ 0.6 (* (rng) 0.5)) :phase (* (rng) js/Math.PI 2) :amp 0.62}
-                       {:freq (+ 1.3 (* (rng) 0.9)) :phase (* (rng) js/Math.PI 2) :amp 0.38}])))
-     :tumble-axis (v/norm {:x (- (rng) 0.5) :y (- (rng) 0.5) :z (- (rng) 0.5)})
-     :tumble-freq (+ 0.5 (* (rng) 0.7))
-     :tumble-phase (* (rng) js/Math.PI 2)}))
+     :wobble wobble :tumble-axis tumble-axis
+     :tumble-freq tumble-freq :tumble-phase tumble-phase}))
 
 (defn- clashes?
   "Reject a candidate water that would land inside the molecule or on top of a
@@ -266,6 +278,32 @@
       ;; two waters closer than a water-water hydrogen bond are on top of
       ;; each other, not next to each other
       (some (fn [w] (< (v/len (v/sub base-o (:base-o w))) 2.70)) placed)))
+
+(defn place
+  "Build waters from explicit definitions instead of deriving them from the
+   structure. Each def is {:name :site :role :anchor :away :oo}, and the water
+   lands at (anchor + away * oo).
+
+   `hydrate` is the default and the better habit: it puts waters where the
+   molecule's own coordinates say they go, so nobody can quietly arrange the
+   answer. This exists for the case where a slide is deliberately calibrating
+   its shell AND says so on its face -- the hydroxyl slide tunes its resting
+   O...O distances to sit just inside the bond cutoff, so the default jitter
+   carries them back out and the count visibly breathes. That flicker is the
+   whole lesson of that slide, and it is listed in its own LIMITS as tuned
+   rather than measured.
+
+   Same water shape and the same 17-draw RNG stride as `hydrate`, so the two
+   are interchangeable everywhere downstream."
+  [state defs {:keys [seed] :or {seed 20260902}}]
+  (let [rng (mulberry32 seed)
+        atoms (:atoms state)]
+    (assoc state :waters
+           (mapv (fn [d]
+                   (make-water rng (:name d) (:site d) (:role d) (:away d)
+                               (v/add (get atoms (:anchor d))
+                                      (v/scale (:away d) (:oo d)))))
+                 defs))))
 
 (defn hydrate
   "Put a hydration shell around a molecule, derived from its own geometry.
