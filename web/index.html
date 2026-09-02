@@ -21,6 +21,9 @@
     --c-carbon: #4b4f58;
     --c-oxygen: #e2555a;
     --c-hydrogen: #eef1f4;
+    --c-nitrogen: #5b7fd4;
+    --c-sulfur: #e3c04a;
+    --c-phosphorus: #e8894a;
   }
 
   *{ box-sizing:border-box; }
@@ -320,6 +323,50 @@
   .swatch.dbl::before{ top: 3px; }
   .swatch.dbl::after{ bottom: 3px; }
 
+  /* --- functional-group slides --- */
+  .controls.auto{
+    grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
+  }
+  .state-strip{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px 22px;
+    padding: 10px 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border-soft);
+    border-radius: 6px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12.5px;
+  }
+  .state-strip .lbl{ color: var(--text-faint); letter-spacing: 0.06em; }
+  .state-strip .val{ color: var(--accent); font-variant-numeric: tabular-nums; }
+  .state-strip .val.plain{ color: var(--text); }
+  .swatch.charge-neg{
+    background: rgba(226, 85, 90, 0.32);
+    box-shadow: inset 0 0 0 1px rgba(226, 85, 90, 0.65);
+  }
+  .swatch.charge-pos{
+    background: rgba(91, 127, 212, 0.32);
+    box-shadow: inset 0 0 0 1px rgba(91, 127, 212, 0.65);
+  }
+  /* a one-and-a-half bond: one full line, one thinner alongside */
+  .swatch.half{
+    position: relative;
+    background: none !important;
+    border: none;
+  }
+  .swatch.half::before,
+  .swatch.half::after{
+    content: "";
+    position: absolute;
+    left: 0; right: 0;
+    background: #9aa5b1;
+    border-radius: 2px;
+  }
+  .swatch.half::before{ top: 2px; height: 3px; }
+  .swatch.half::after{ bottom: 3px; height: 1.5px; opacity: 0.75; }
+
   /* --- deck shell --- */
   .deck-bar{
     position: sticky;
@@ -404,7 +451,7 @@
     <button class="nav-btn" id="deck-next" type="button" aria-label="Next slide">&#8594;</button>
     <div class="deck-dots" id="deck-dots" role="tablist" aria-label="Slides"></div>
     <span class="deck-hint"><kbd>&#8592;</kbd> <kbd>&#8594;</kbd> to move between slides</span>
-    <span class="deck-position" id="deck-position">1 / 2</span>
+    <span class="deck-position" id="deck-position">1 / 8</span>
   </div>
 </div>
 <section class="slide" id="slide-hydroxyl" tabindex="-1" role="group" aria-roledescription="slide" aria-label="Hydroxyl in Water — ethanol">
@@ -653,6 +700,964 @@
         planar to 0.0007 Å, which is what the lone-pair construction relies on.
         The <code>C=O</code> is drawn as a double line because the SDF says
         order 2, not because a list somewhere names that bond.
+      </p>
+    </div>
+  </section>
+</main>
+</section>
+
+<section class="slide" id="slide-ketone" tabindex="-1" role="group" aria-roledescription="slide" aria-label="Keto in Water — acetone">
+<div class="page">
+  <p class="eyebrow">Ketones &rarr; the C&#61;O group &rarr; hydration</p>
+  <h1>Keto in Water</h1>
+  <p class="subtitle">
+    <b>Acetone</b> &mdash; the same carbonyl as the last slide, moved. An
+    aldehyde puts its <b>C&#61;O</b> at the <i>end</i> of a chain, with a
+    hydrogen on the carbonyl carbon. A ketone puts it in the <i>middle</i>,
+    with a carbon on both sides. Neither can donate a hydrogen bond. What the
+    move changes is everything around the oxygen.
+  </p>
+
+  <div class="compound-card">
+    <p class="cbody">
+      <span class="cname">Acetone.</span> Polar.
+      <span class="cgroup">C=O</span> group is reactive, though less so than an
+      aldehyde's. The smallest <i>ketone body</i> &mdash; what the liver makes
+      out of fat when glucose runs short, and what you can smell on the breath
+      in ketoacidosis.
+    </p>
+  </div>
+</div>
+
+<main>
+  <section class="stage-panel">
+    <div class="stage-frame">
+      <canvas class="render-canvas" id="ket-canvas" width="620" height="620"></canvas>
+      <div class="readout">
+        <div><span class="lbl">H-BONDS ACTIVE </span><span class="num" id="ket-count">0</span></div>
+        <div><span class="lbl">C&#61;O GIVES </span><span class="num zero" id="ket-gives">0</span></div>
+        <div><span class="lbl">C&#61;O TAKES </span><span class="num" id="ket-takes">0</span></div>
+        <div><span class="lbl">&ndash;CH<sub>3</sub> BONDS </span><span class="num zero" id="ket-methyl">0</span></div>
+        <div><span class="lbl">CLOSE BUT TOO BENT </span><span class="num" id="ket-bent">0</span></div>
+      </div>
+      <div class="drag-hint">drag to orbit</div>
+    </div>
+
+    <div class="state-strip">
+      <span><span class="lbl">C&#61;O LENGTH </span><span class="val" id="ket-co">&mdash;</span></span>
+      <span><span class="lbl">WATERS PARKED ON THE METHYLS </span><span class="val" id="ket-phobic-waters">0</span></span>
+    </div>
+
+    <div class="controls auto">
+      <div class="control">
+        <div class="control-head">
+          <label for="ket-amp">Brownian amplitude</label>
+          <span class="value" id="ket-amp-value">0.30 Å</span>
+        </div>
+        <input type="range" id="ket-amp" min="0" max="0.6" step="0.01" value="0.30">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="ket-tumble">Tumble</label>
+          <span class="value" id="ket-tumble-value">50°</span>
+        </div>
+        <input type="range" id="ket-tumble" min="0" max="70" step="1" value="50">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="ket-speed">Speed</label>
+          <span class="value" id="ket-speed-value">1.0×</span>
+        </div>
+        <input type="range" id="ket-speed" min="0" max="3" step="0.05" value="1">
+      </div>
+      <button class="play-toggle" id="ket-play" type="button">Pause</button>
+      <label class="toggle" for="ket-show-bent">
+        <input type="checkbox" id="ket-show-bent" checked>
+        Show contacts rejected for angle
+      </label>
+      <label class="toggle" for="ket-phobic">
+        <input type="checkbox" id="ket-phobic">
+        Shade the two methyl groups
+      </label>
+    </div>
+  </section>
+
+  <section class="legend" aria-label="Atom and bond color key">
+    <div class="legend-item"><span class="swatch" style="background:var(--c-carbon)"></span>Carbon</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-oxygen)"></span>Oxygen</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-hydrogen)"></span>Hydrogen</div>
+    <div class="legend-item"><span class="swatch dbl"></span>C&#61;O double bond</div>
+    <div class="legend-item"><span class="swatch bond" style="background:var(--accent)"></span>H-bond at the C&#61;O</div>
+    <div class="legend-item"><span class="swatch bond" style="background:#6d4b52"></span>Close, but rejected for angle</div>
+    <div class="legend-item"><span class="swatch" style="background:#7a6a4a"></span>Shaded hydrophobic surface</div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">WHAT TO LOOK FOR</span>
+    <div>
+      <p>
+        <b>GIVES is zero again, for a different reason.</b> The aldehyde had a
+        hydrogen on its carbonyl carbon and still could not donate, because a
+        C&ndash;H is not polar enough. Acetone does not even have that
+        &mdash; all six of its hydrogens are on methyl carbons. Two bonds come
+        in, on the oxygen's two lone pairs, and nothing goes out. A carbonyl is
+        an acceptor whichever end of the chain you put it on.
+      </p>
+      <p>
+        <b>Now count the grease.</b> Four waters sit against the two methyl
+        groups and never bond to them, however far you push the amplitude.
+        Tick <i>shade the two methyl groups</i> to see how much of this
+        molecule that is. The aldehyde had one methyl and a bare hydrogen; the
+        ketone has two methyls. Moving the C&#61;O inward did not change what
+        the oxygen does &mdash; it doubled the oily surface around it.
+      </p>
+      <p>
+        <b>The difference that isn't visible here.</b> An aldehyde's carbonyl
+        carbon still carries a hydrogen, so it can be oxidised one step
+        further, into the carboxyl group on the next slide. A ketone's carbonyl
+        carbon is bonded to two carbons and has no hydrogen to give up: it is a
+        dead end. Same group, different neighbours, completely different fate
+        in a metabolic pathway.
+      </p>
+      <p>
+        <b>Turn Tumble to 0</b> and both bonds lock on; raise it and they fail
+        on angle while the molecules stay exactly as close as they were.
+      </p>
+    </div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">LIMITS</span>
+    <div>
+      <p>
+        Drift and tumble are <b>hand-tuned sums of sine waves</b>, seeded per
+        water. Not a physics simulation &mdash; nothing repels, collides or
+        exchanges, and the molecule is held rigid.
+      </p>
+      <p>
+        A bond lights when the donor&ndash;H&middot;&middot;&middot;acceptor distance is under
+        <code>2.5 Å</code> and the D&ndash;H&middot;&middot;&middot;A angle exceeds
+        <code>120&deg;</code> &mdash; the standard geometric proxy, not an
+        electron-density calculation. The angle <i>at the acceptor</i> is not
+        checked, so a water can sit somewhere a real lone pair would not have
+        it.
+      </p>
+      <p>
+        Coordinates are the <b>ideal</b> (computed) conformer from PDB chemical
+        component <code>ACN</code>, not an experimental measurement. The two
+        waters at the oxygen are placed on lone-pair directions
+        <i>computed from the molecule's own geometry</i>; the four at the
+        methyls are placed at van der Waals contact. Real hydration-shell
+        waters exchange with bulk on a picosecond timescale &mdash; these six
+        never leave.
+      </p>
+    </div>
+  </section>
+</main>
+</section>
+<section class="slide" id="slide-carboxyl" tabindex="-1" role="group" aria-roledescription="slide" aria-label="Carboxyl in Water — acetic acid">
+<div class="page">
+  <p class="eyebrow">Carboxylic acids &rarr; the &ndash;COOH group &rarr; ionisation</p>
+  <h1>Carboxyl in Water</h1>
+  <p class="subtitle">
+    <b>Acetic acid</b> &mdash; a carbonyl and a hydroxyl on the <i>same
+    carbon</i>. Put those two groups together and something neither one does
+    alone starts happening: the O&ndash;H becomes acidic enough to let go
+    entirely. This is the first slide with a <b>pH</b> knob, and crossing
+    <code>pKa 4.76</code> swaps one deposited structure for another.
+  </p>
+
+  <div class="compound-card">
+    <p class="cbody">
+      <span class="cname">Acetic acid.</span> Polar, and <i>ionisable</i>.
+      <span class="cgroup">&ndash;COOH</span> gives up a proton to become
+      <span class="cgroup">&ndash;COO&#8315;</span>. Above its pKa it carries a
+      negative charge &mdash; and in a cell, it always does.
+    </p>
+  </div>
+</div>
+
+<main>
+  <section class="stage-panel">
+    <div class="stage-frame">
+      <canvas class="render-canvas" id="cbx-canvas" width="620" height="620"></canvas>
+      <div class="readout">
+        <div><span class="lbl">H-BONDS ACTIVE </span><span class="num" id="cbx-count">0</span></div>
+        <div><span class="lbl">GROUP GIVES </span><span class="num" id="cbx-gives">0</span></div>
+        <div><span class="lbl">GROUP TAKES </span><span class="num" id="cbx-takes">0</span></div>
+        <div><span class="lbl">CLOSE BUT TOO BENT </span><span class="num" id="cbx-bent">0</span></div>
+      </div>
+      <div class="drag-hint">drag to orbit</div>
+    </div>
+
+    <div class="state-strip">
+      <span><span class="lbl">SPECIES </span><span class="val plain" id="cbx-species">&mdash;</span></span>
+      <span><span class="lbl">IONISED </span><span class="val" id="cbx-ionized">&mdash;</span></span>
+      <span><span class="lbl">CHARGE </span><span class="val" id="cbx-charge">0</span></span>
+      <span><span class="lbl">C&ndash;O LENGTHS </span><span class="val" id="cbx-co">&mdash;</span>
+        <span class="lbl" id="cbx-co-note"></span></span>
+    </div>
+
+    <div class="controls auto">
+      <div class="control">
+        <div class="control-head">
+          <label for="cbx-ph">pH</label>
+          <span class="value" id="cbx-ph-value">7.0</span>
+        </div>
+        <input type="range" id="cbx-ph" min="0" max="14" step="0.1" value="7">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="cbx-amp">Brownian amplitude</label>
+          <span class="value" id="cbx-amp-value">0.28 Å</span>
+        </div>
+        <input type="range" id="cbx-amp" min="0" max="0.6" step="0.01" value="0.28">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="cbx-tumble">Tumble</label>
+          <span class="value" id="cbx-tumble-value">45°</span>
+        </div>
+        <input type="range" id="cbx-tumble" min="0" max="70" step="1" value="45">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="cbx-speed">Speed</label>
+          <span class="value" id="cbx-speed-value">1.0×</span>
+        </div>
+        <input type="range" id="cbx-speed" min="0" max="3" step="0.05" value="1">
+      </div>
+      <button class="play-toggle" id="cbx-play" type="button">Pause</button>
+      <label class="toggle" for="cbx-show-bent">
+        <input type="checkbox" id="cbx-show-bent" checked>
+        Show contacts rejected for angle
+      </label>
+    </div>
+  </section>
+
+  <section class="legend" aria-label="Atom and bond color key">
+    <div class="legend-item"><span class="swatch" style="background:var(--c-carbon)"></span>Carbon</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-oxygen)"></span>Oxygen</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-hydrogen)"></span>Hydrogen</div>
+    <div class="legend-item"><span class="swatch dbl"></span>C&#61;O double bond</div>
+    <div class="legend-item"><span class="swatch half"></span>Delocalised C&ndash;O (one-and-a-half)</div>
+    <div class="legend-item"><span class="swatch charge-neg"></span>Negative formal charge</div>
+    <div class="legend-item"><span class="swatch bond" style="background:var(--accent)"></span>Hydrogen bond</div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">WHAT TO LOOK FOR</span>
+    <div>
+      <p>
+        <b>Drag the pH through 4.76.</b> The hydroxyl hydrogen disappears, a
+        red charge cloud spreads over both oxygens, and <b>GIVES drops from 1
+        to 0</b>. That single readout is the whole difference: an acid that has
+        already given its proton away has nothing left to give. Meanwhile
+        <b>TAKES goes up</b> &mdash; a negative oxygen is a better acceptor
+        than a neutral one.
+      </p>
+      <p>
+        <b>Watch the C&ndash;O lengths.</b> Below the pKa they read
+        <code>1.208 / 1.342 Å</code>: one double bond and one single. Above it
+        they read <code>1.220 / 1.220 Å</code> &mdash; <i>identical</i>. That
+        is not a redraw, it is two different deposited structures
+        (<code>ACY</code> and <code>ACT</code>) measured independently and
+        reporting the same thing: once the proton leaves, the negative charge
+        is shared across both oxygens and the two bonds become one kind of
+        bond. Which is why the anion is drawn with one-and-a-half bonds rather
+        than a double and a single &mdash; even though the file's bond-order
+        column still says &ldquo;double&rdquo; and &ldquo;single&rdquo;,
+        because a CIF has to pick a Kekul&eacute; structure.
+      </p>
+      <p>
+        <b>Now set pH to 7</b> &mdash; roughly a cell. IONISED reads over
+        99%. When a textbook labels a group &ldquo;carboxyl&rdquo;, the thing
+        actually present in the cell is the <i>carboxylate</i>. That is why
+        aspartate and glutamate are drawn with a minus sign.
+      </p>
+    </div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">LIMITS</span>
+    <div>
+      <p>
+        <b>One molecule cannot show a mixture.</b> The picture switches
+        structure at the pKa, but a real solution at pH 4.76 is a 50/50 blend
+        of both forms, and every molecule is swapping between them constantly.
+        The IONISED percentage is the honest version of what the picture
+        simplifies &mdash; it comes from the Henderson&ndash;Hasselbalch
+        equation, and it is continuous where the drawing is a step.
+      </p>
+      <p>
+        <code>pKa 4.76</code> is acetic acid in dilute water at 25&nbsp;&deg;C.
+        The same group buried in a protein can shift by several units.
+      </p>
+      <p>
+        <b>The proton does not vanish.</b> It goes to a water molecule and
+        makes H<sub>3</sub>O&#8314;. That is not drawn, and neither is any
+        counter-ion, so charge is not conserved on screen.
+      </p>
+      <p>
+        The charge clouds are <b>formal-charge bookkeeping</b> &mdash; half a
+        minus on each oxygen because that is how resonance is taught &mdash;
+        not a computed electron density. Bonds light on the same geometric
+        <code>2.5 Å</code> / <code>120&deg;</code> proxy as every other slide.
+      </p>
+    </div>
+  </section>
+</main>
+</section>
+<section class="slide" id="slide-amino" tabindex="-1" role="group" aria-roledescription="slide" aria-label="Amino in Water — methylamine">
+<div class="page">
+  <p class="eyebrow">Amines &rarr; the &ndash;NH<sub>2</sub> group &rarr; ionisation</p>
+  <h1>Amino in Water</h1>
+  <p class="subtitle">
+    <b>Methylamine</b> &mdash; the same pH slider as the last slide, run in the
+    opposite direction. A carboxyl is an <b>acid</b>: it loses a proton and
+    goes negative. An amine is a <b>base</b>: it takes one and goes positive.
+    And it pays for that proton with the one thing it had to accept hydrogen
+    bonds with.
+  </p>
+
+  <div class="compound-card">
+    <p class="cbody">
+      <span class="cname">Methylamine.</span> Polar, and <i>ionisable</i>.
+      <span class="cgroup">&ndash;NH<sub>2</sub></span> picks up a proton to
+      become <span class="cgroup">&ndash;NH<sub>3</sub>&#8314;</span>. Its pKa
+      is 10.66 &mdash; well <i>above</i> cell pH, so in a cell an amine is
+      almost always the charged form.
+    </p>
+  </div>
+</div>
+
+<main>
+  <section class="stage-panel">
+    <div class="stage-frame">
+      <canvas class="render-canvas" id="amn-canvas" width="620" height="620"></canvas>
+      <div class="readout">
+        <div><span class="lbl">H-BONDS ACTIVE </span><span class="num" id="amn-count">0</span></div>
+        <div><span class="lbl">GROUP GIVES </span><span class="num" id="amn-gives">0</span></div>
+        <div><span class="lbl">GROUP TAKES </span><span class="num" id="amn-takes">0</span></div>
+        <div><span class="lbl">CLOSE BUT TOO BENT </span><span class="num" id="amn-bent">0</span></div>
+      </div>
+      <div class="drag-hint">drag to orbit</div>
+    </div>
+
+    <div class="state-strip">
+      <span><span class="lbl">SPECIES </span><span class="val plain" id="amn-species">&mdash;</span></span>
+      <span><span class="lbl">PROTONATED </span><span class="val" id="amn-protonated">&mdash;</span></span>
+      <span><span class="lbl">CHARGE </span><span class="val" id="amn-charge">0</span></span>
+      <span><span class="lbl">N LONE PAIRS </span><span class="val" id="amn-lp">&mdash;</span></span>
+    </div>
+
+    <div class="controls auto">
+      <div class="control">
+        <div class="control-head">
+          <label for="amn-ph">pH</label>
+          <span class="value" id="amn-ph-value">7.0</span>
+        </div>
+        <input type="range" id="amn-ph" min="0" max="14" step="0.1" value="7">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="amn-amp">Brownian amplitude</label>
+          <span class="value" id="amn-amp-value">0.28 Å</span>
+        </div>
+        <input type="range" id="amn-amp" min="0" max="0.6" step="0.01" value="0.28">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="amn-tumble">Tumble</label>
+          <span class="value" id="amn-tumble-value">45°</span>
+        </div>
+        <input type="range" id="amn-tumble" min="0" max="70" step="1" value="45">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="amn-speed">Speed</label>
+          <span class="value" id="amn-speed-value">1.0×</span>
+        </div>
+        <input type="range" id="amn-speed" min="0" max="3" step="0.05" value="1">
+      </div>
+      <button class="play-toggle" id="amn-play" type="button">Pause</button>
+      <label class="toggle" for="amn-show-bent">
+        <input type="checkbox" id="amn-show-bent" checked>
+        Show contacts rejected for angle
+      </label>
+    </div>
+  </section>
+
+  <section class="legend" aria-label="Atom and bond color key">
+    <div class="legend-item"><span class="swatch" style="background:var(--c-carbon)"></span>Carbon</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-nitrogen)"></span>Nitrogen</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-hydrogen)"></span>Hydrogen</div>
+    <div class="legend-item"><span class="swatch charge-pos"></span>Positive formal charge</div>
+    <div class="legend-item"><span class="swatch bond" style="background:var(--accent)"></span>Hydrogen bond</div>
+    <div class="legend-item"><span class="swatch bond" style="background:#6d4b52"></span>Close, but rejected for angle</div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">WHAT TO LOOK FOR</span>
+    <div>
+      <p>
+        <b>Watch TAKES, not GIVES.</b> Drag the pH below 10.66 and the amine
+        picks up a third hydrogen. GIVES climbs from 2 to 3 &mdash; and TAKES
+        falls to <b>zero</b>. The nitrogen's lone pair is what was doing the
+        accepting; a proton is now bonded to it. An amine trades away its
+        ability to accept for one more hydrogen to give, and it cannot do both
+        at once.
+      </p>
+      <p>
+        This is not special-cased anywhere. The slide hands the nitrogen to the
+        same lone-pair routine every acceptor on every slide goes through, and
+        a nitrogen with four neighbours simply has no free pair for it to find.
+        The <b>N LONE PAIRS</b> readout is that routine's answer, not a label.
+      </p>
+      <p>
+        <b>Set pH to 7.4</b> &mdash; blood. PROTONATED reads about 99.9%. Every
+        lysine side chain and every protein N-terminus in your body is a
+        cation, for exactly this reason. Pair that with the previous slide at
+        the same pH, where the carboxyl was an anion: at cell pH, acids are
+        negative and bases are positive <i>simultaneously</i>. The last slide
+        in the deck puts both on one molecule.
+      </p>
+    </div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">LIMITS</span>
+    <div>
+      <p>
+        <b>The third N&ndash;H is constructed, not measured.</b> PDB chemical
+        component <code>NME</code> is the neutral amine; the ammonium form is
+        made here by placing a hydrogen at the one tetrahedral vertex the other
+        three bonds leave open, at a standard <code>1.010 Å</code>. The rest of
+        the molecule is <i>not</i> re-relaxed afterwards, though a real
+        protonation pulls the N&ndash;C bond in slightly. Compare the carboxyl
+        slide, where both forms are separately deposited structures and no
+        construction was needed.
+      </p>
+      <p>
+        As on that slide, the drawing steps at the pKa while a real solution
+        blends the two forms continuously &mdash; PROTONATED is the honest
+        number. And the proton has to come from somewhere: it is taken from a
+        water, leaving OH&#8315;, which is not drawn.
+      </p>
+      <p>
+        Same geometric bond test as everywhere in this deck
+        (<code>2.5 Å</code>, <code>120&deg;</code>), and the same hand-tuned
+        sine-wave motion. Not physics.
+      </p>
+    </div>
+  </section>
+</main>
+</section>
+<section class="slide" id="slide-phosphate" tabindex="-1" role="group" aria-roledescription="slide" aria-label="Phosphate in Water — 3-phosphoglycerate">
+<div class="page">
+  <p class="eyebrow">Phosphates &rarr; the &ndash;OPO<sub>3</sub> group &rarr; charge</p>
+  <h1>Phosphate in Water</h1>
+  <p class="subtitle">
+    <b>3-phosphoglycerate</b> &mdash; not a demonstration molecule but a real
+    one, the product of the first ATP-making step of glycolysis. It carries
+    <b>three</b> ionisable protons with pKas spread across the usable range,
+    plus a fourth O&ndash;H that never ionises at all. Take the slider to 7.2
+    &mdash; cell pH &mdash; and read the net charge.
+  </p>
+
+  <div class="compound-card">
+    <p class="cbody">
+      <span class="cname">3-phosphoglycerate.</span> Very polar, and
+      <i>multiply charged</i>. A <span class="cgroup">phosphate</span> group is
+      how cells tag a molecule: it adds charge, which adds water, which means
+      the molecule can no longer slip out through a membrane. Important in
+      energy transfer and in nearly every signalling switch.
+    </p>
+  </div>
+</div>
+
+<main>
+  <section class="stage-panel">
+    <div class="stage-frame">
+      <canvas class="render-canvas" id="pho-canvas" width="620" height="620"></canvas>
+      <div class="readout">
+        <div><span class="lbl">H-BONDS ACTIVE </span><span class="num" id="pho-count">0</span></div>
+        <div><span class="lbl">AT THE PHOSPHATE </span><span class="num" id="pho-phos">0</span></div>
+        <div><span class="lbl">AT THE CARBOXYL </span><span class="num" id="pho-carb">0</span></div>
+        <div><span class="lbl">AT THE &ndash;OH </span><span class="num" id="pho-hydroxyl">0</span></div>
+        <div><span class="lbl">CLOSE BUT TOO BENT </span><span class="num" id="pho-bent">0</span></div>
+      </div>
+      <div class="drag-hint">drag to orbit</div>
+    </div>
+
+    <div class="state-strip">
+      <span><span class="lbl">SPECIES </span><span class="val plain" id="pho-species">&mdash;</span></span>
+      <span><span class="lbl">NET CHARGE </span><span class="val" id="pho-charge">0</span></span>
+      <span><span class="lbl">PROTONS RELEASED </span><span class="val plain" id="pho-released">none</span></span>
+      <span><span class="lbl">MAJORITY SPECIES </span><span class="val" id="pho-mix">&mdash;</span></span>
+      <span><span class="lbl">CELL FORM? </span><span class="val plain" id="pho-cell">&mdash;</span></span>
+    </div>
+
+    <div class="controls auto">
+      <div class="control">
+        <div class="control-head">
+          <label for="pho-ph">pH</label>
+          <span class="value" id="pho-ph-value">7.2</span>
+        </div>
+        <input type="range" id="pho-ph" min="0" max="14" step="0.1" value="7.2">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="pho-amp">Brownian amplitude</label>
+          <span class="value" id="pho-amp-value">0.26 Å</span>
+        </div>
+        <input type="range" id="pho-amp" min="0" max="0.6" step="0.01" value="0.26">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="pho-tumble">Tumble</label>
+          <span class="value" id="pho-tumble-value">40°</span>
+        </div>
+        <input type="range" id="pho-tumble" min="0" max="70" step="1" value="40">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="pho-speed">Speed</label>
+          <span class="value" id="pho-speed-value">1.0×</span>
+        </div>
+        <input type="range" id="pho-speed" min="0" max="3" step="0.05" value="1">
+      </div>
+      <button class="play-toggle" id="pho-play" type="button">Pause</button>
+      <label class="toggle" for="pho-show-bent">
+        <input type="checkbox" id="pho-show-bent">
+        Show contacts rejected for angle
+      </label>
+    </div>
+  </section>
+
+  <section class="legend" aria-label="Atom and bond color key">
+    <div class="legend-item"><span class="swatch" style="background:var(--c-carbon)"></span>Carbon</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-oxygen)"></span>Oxygen</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-phosphorus)"></span>Phosphorus</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-hydrogen)"></span>Hydrogen</div>
+    <div class="legend-item"><span class="swatch charge-neg"></span>Negative formal charge</div>
+    <div class="legend-item"><span class="swatch bond" style="background:var(--accent)"></span>Hydrogen bond</div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">WHAT TO LOOK FOR</span>
+    <div>
+      <p>
+        <b>Walk the slider from 0 to 14 and watch NET CHARGE.</b> It steps
+        <code>0 &rarr; &minus;1 &rarr; &minus;2 &rarr; &minus;3</code>, at
+        pKa 1.4, 3.4 and 6.2. By cell pH this small molecule is carrying
+        <b>three negative charges</b>. That is what a phosphate group is
+        <i>for</i>: charge is a tag, and a molecule this charged cannot drift
+        out through the greasy middle of a membrane. Phosphorylate something
+        and you have locked it inside the cell &mdash; and given every enzyme a
+        big, distinctive handle to grab.
+      </p>
+      <p>
+        <b>The hydration shell grows with the charge.</b> Bonds at the
+        phosphate climb as the protons come off. This is the visible half of
+        why phosphorylation changes a protein's behaviour so completely: you
+        have not just added an atom, you have added a charged, heavily hydrated
+        lump where there was a plain hydroxyl.
+      </p>
+      <p>
+        <b>GIVES never quite reaches zero.</b> Even at pH 14 one hydrogen is
+        still there &mdash; the hydroxyl on the middle carbon. It is a plain
+        secondary alcohol with a pKa around 15, off the top of the slider.
+        Three of this molecule's four O&ndash;H groups look identical in the
+        structure file and one of them behaves completely differently. Where a
+        hydrogen sits does not tell you whether it will leave; what it is
+        attached to does.
+      </p>
+      <p>
+        <b>Park the slider exactly on 6.2</b> and MAJORITY SPECIES reads about
+        50%. The picture is showing you one molecule and having to pick.
+      </p>
+    </div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">LIMITS</span>
+    <div>
+      <p>
+        <b>The pKa values are approximate.</b> They are literature ballparks
+        for a phosphate monoester next to an &alpha;-hydroxy acid; real
+        measurements shift by a few tenths with ionic strength, temperature and
+        counter-ion, and sources disagree at that level. The <i>shape</i> of
+        the ladder is the point, not the second decimal.
+      </p>
+      <p>
+        <b>The coordinates are the fully protonated acid's, throughout.</b>
+        Removing a proton here removes an atom and nothing else &mdash; no bond
+        length is re-relaxed. So in the file the P&#61;O stays
+        <code>1.480 Å</code> while the two P&ndash;OH stay
+        <code>1.609 Å</code>, even at &minus;3 where all three should have
+        equalised near 1.5. The carboxylate has the same problem: its bond
+        <i>order</i> is redrawn as one-and-a-half but its bond
+        <i>lengths</i> are still the acid's. The carboxyl slide, which has both
+        forms as separate deposited structures, shows what that relaxation
+        actually looks like.
+      </p>
+      <p>
+        No counter-ions. In a real cell this ion is almost never alone &mdash;
+        Mg<sup>2+</sup> sits on phosphates constantly, and enzymes hold them
+        with arginines. Take the size of that water shell as an
+        <i>upper bound</i>.
+      </p>
+      <p>
+        Charge clouds are formal-charge bookkeeping spread over the oxygens
+        that share it, not computed electron density. Same geometric bond test
+        and hand-tuned motion as the rest of the deck.
+      </p>
+    </div>
+  </section>
+</main>
+</section>
+<section class="slide" id="slide-sulfhydryl" tabindex="-1" role="group" aria-roledescription="slide" aria-label="Sulfhydryl in Water — mercaptoethanol">
+<div class="page">
+  <p class="eyebrow">Thiols &rarr; the &ndash;SH group &rarr; sulfur against oxygen</p>
+  <h1>Sulfhydryl in Water</h1>
+  <p class="subtitle">
+    <b>2-mercaptoethanol</b> carries an <b>&ndash;OH</b> on one carbon and an
+    <b>&ndash;SH</b> on the next: the same group, with oxygen swapped for the
+    element directly below it in the periodic table. One molecule, and its own
+    control. Then tick <b>oxidise</b> and watch sulfur do the thing oxygen
+    cannot.
+  </p>
+
+  <div class="compound-card">
+    <p class="cbody">
+      <span class="cname">2-mercaptoethanol.</span> Polar.
+      <span class="cgroup">&ndash;SH</span> forms weak hydrogen bonds but
+      strong, reversible <b>S&ndash;S</b> bridges. Important in holding folded
+      proteins together &mdash; and this molecule in particular is the reagent
+      used to take those bridges apart.
+    </p>
+  </div>
+</div>
+
+<main>
+  <section class="stage-panel">
+    <div class="stage-frame">
+      <canvas class="render-canvas" id="sh-canvas" width="620" height="620"></canvas>
+      <div class="readout">
+        <div><span class="lbl">H-BONDS ACTIVE </span><span class="num" id="sh-count">0</span></div>
+        <div><span class="lbl">AT THE &ndash;OH </span><span class="num" id="sh-oh">0</span></div>
+        <div><span class="lbl">AT THE SULFUR </span><span class="num" id="sh-thiol">0</span></div>
+        <div><span class="lbl">TOTAL, TABULATED </span><span class="num" id="sh-energy">&mdash;</span></div>
+        <div><span class="lbl">CLOSE BUT TOO BENT </span><span class="num" id="sh-bent">0</span></div>
+      </div>
+      <div class="drag-hint">drag to orbit</div>
+    </div>
+
+    <div class="state-strip">
+      <span><span class="lbl">SPECIES </span><span class="val plain" id="sh-species">&mdash;</span></span>
+      <span><span class="lbl">C&ndash;O </span><span class="val" id="sh-co">&mdash;</span></span>
+      <span><span class="lbl">C&ndash;S </span><span class="val" id="sh-cs">&mdash;</span></span>
+      <span><span class="lbl">S&ndash;S </span><span class="val" id="sh-ss">&mdash;</span></span>
+    </div>
+
+    <div class="controls auto">
+      <div class="control">
+        <div class="control-head">
+          <label for="sh-strength">Minimum bond strength</label>
+          <span class="value" id="sh-strength-value">0 kJ/mol</span>
+        </div>
+        <input type="range" id="sh-strength" min="0" max="22" step="1" value="0">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="sh-amp">Brownian amplitude</label>
+          <span class="value" id="sh-amp-value">0.26 Å</span>
+        </div>
+        <input type="range" id="sh-amp" min="0" max="0.6" step="0.01" value="0.26">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="sh-tumble">Tumble</label>
+          <span class="value" id="sh-tumble-value">40°</span>
+        </div>
+        <input type="range" id="sh-tumble" min="0" max="70" step="1" value="40">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="sh-speed">Speed</label>
+          <span class="value" id="sh-speed-value">1.0×</span>
+        </div>
+        <input type="range" id="sh-speed" min="0" max="3" step="0.05" value="1">
+      </div>
+      <button class="play-toggle" id="sh-play" type="button">Pause</button>
+      <label class="toggle" for="sh-oxidize">
+        <input type="checkbox" id="sh-oxidize">
+        Oxidise &mdash; form the S&ndash;S bridge
+      </label>
+      <label class="toggle" for="sh-show-bent">
+        <input type="checkbox" id="sh-show-bent">
+        Show contacts rejected for angle
+      </label>
+    </div>
+  </section>
+
+  <section class="legend" aria-label="Atom and bond color key">
+    <div class="legend-item"><span class="swatch" style="background:var(--c-carbon)"></span>Carbon</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-oxygen)"></span>Oxygen</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-sulfur)"></span>Sulfur</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-hydrogen)"></span>Hydrogen</div>
+    <div class="legend-item"><span class="swatch bond" style="background:var(--accent)"></span>Hydrogen bond (strong)</div>
+    <div class="legend-item"><span class="swatch bond" style="background:#2f7d70"></span>Hydrogen bond (weak — sulfur)</div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">WHAT TO LOOK FOR</span>
+    <div>
+      <p>
+        <b>Compare the two bond lengths in the strip.</b>
+        <code>C&ndash;O 1.430 Å</code> against <code>C&ndash;S 1.813 Å</code>
+        &mdash; the same kind of single bond, from the same deposited
+        structure, nearly four tenths of an &aring;ngstr&ouml;m longer. Sulfur
+        sits one row down from oxygen and it is a much bigger atom. That is why
+        it is drawn bigger here, and it is most of why a thiol behaves
+        differently from an alcohol.
+      </p>
+      <p>
+        <b>Both ends light up &mdash; and that is this deck's bond test
+        failing.</b> The geometric proxy asks only about distance and angle,
+        and by those measures the S&ndash;H contact is a perfectly good
+        hydrogen bond. It is not. Sulfur's electronegativity is 2.58 against
+        oxygen's 3.44, so an S&ndash;H bond is barely polarised and its
+        hydrogen is a poor thing to offer. <b>Raise the minimum-strength
+        slider</b> and the sulfur bonds die first, in the dim teal, while the
+        &ndash;OH bonds stay lit. That slider is both the lesson and the
+        confession: the strengths behind it are looked up in a table, not
+        computed from anything on screen, precisely <i>because</i> the geometry
+        on screen cannot tell the two apart.
+      </p>
+      <p>
+        <b>Now tick oxidise.</b> Two thiols become one molecule joined by a
+        real <code>S&ndash;S</code> bridge of <code>2.050 Å</code>, and the two
+        S&ndash;H hydrogens are simply gone &mdash; the count at the sulfur
+        drops. This is the bond that staples an antibody together and holds
+        keratin rigid, and it is reversible under ordinary cellular conditions,
+        which no C&ndash;O or C&ndash;C bond is. Oxygen has no equivalent:
+        peroxides exist but are not something a cell leaves lying around in a
+        protein.
+      </p>
+      <p>
+        <b>Watch the &ndash;OH ends while you toggle.</b> They do not change at
+        all. Half the molecule is having a redox reaction and the other half
+        does not notice.
+      </p>
+    </div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">LIMITS</span>
+    <div>
+      <p>
+        <b>The reduced pair's pose is constructed.</b> Each half is a real,
+        whole mercaptoethanol (component <code>BME</code>, with its own real
+        S&ndash;H) and the disulfide is a real structure
+        (<code>HED</code>) &mdash; but the two free thiols are drawn in the
+        pose their disulfide would have, pulled apart along the S&ndash;S axis,
+        so you can see exactly which bond formed. In solution two free thiols
+        have no fixed relationship to each other at all; they would diffuse
+        apart.
+      </p>
+      <p>
+        <b>The toggle is not a reaction.</b> It swaps one structure for
+        another. A real oxidation needs an oxidant, releases two protons and
+        two electrons, and passes through a mixed intermediate &mdash; none of
+        which is modelled. Nor is the reverse: mercaptoethanol breaks a
+        protein's disulfide by <i>exchanging</i> with it in two steps, not by
+        this switch.
+      </p>
+      <p>
+        <b>The strength numbers are tabulated ballparks</b> for typical neutral
+        donor/acceptor element pairs (about 21 kJ/mol for O&ndash;H&middot;&middot;&middot;O,
+        about 7 for S&ndash;H&middot;&middot;&middot;O). They are not computed from the
+        geometry, they do not vary with distance or angle, and charged partners
+        would be considerably stronger. Treat the TOTAL readout as a ranking
+        device, not an energy.
+      </p>
+      <p>
+        Thiols also ionise &mdash; a cysteine thiol has a pKa around 8.3, low
+        enough to matter at cell pH, and the thiolate anion is the reactive
+        species in most enzymes that use one. That is not on this slide; the pH
+        slider from the three previous slides would have been the way to show
+        it.
+      </p>
+    </div>
+  </section>
+</main>
+</section>
+<section class="slide" id="slide-methyl" tabindex="-1" role="group" aria-roledescription="slide" aria-label="Methyl in Water — alanine">
+<div class="page">
+  <p class="eyebrow">The &ndash;CH<sub>3</sub> group &rarr; the hydrophobic effect</p>
+  <h1>Methyl in Water</h1>
+  <p class="subtitle">
+    <b>Alanine</b> &mdash; whose entire side chain is a single methyl group,
+    the smallest hydrophobic side chain there is. This last slide is about a
+    group that does <b>nothing</b>: no lone pair to accept with, no polar
+    hydrogen to give, no pH at which it ionises, no charge ever. And that
+    nothing is one of the strongest organising forces in biology.
+  </p>
+
+  <div class="compound-card">
+    <p class="cbody">
+      <span class="cname">Alanine.</span> Non-polar side chain.
+      <span class="cgroup">&ndash;CH<sub>3</sub></span> does not interact with
+      water at all &mdash; which is exactly why water pushes it out of the way.
+      Important in protein folding and in every membrane you have.
+    </p>
+  </div>
+</div>
+
+<main>
+  <section class="stage-panel">
+    <div class="stage-frame">
+      <canvas class="render-canvas" id="me-canvas" width="620" height="620"></canvas>
+      <div class="readout">
+        <div><span class="lbl">H-BONDS ACTIVE </span><span class="num" id="me-count">0</span></div>
+        <div><span class="lbl">AT THE AMINO END </span><span class="num" id="me-amino">0</span></div>
+        <div><span class="lbl">AT THE CARBOXYL END </span><span class="num" id="me-carb">0</span></div>
+        <div><span class="lbl">AT THE &ndash;CH<sub>3</sub> </span><span class="num zero" id="me-methyl">0</span></div>
+        <div><span class="lbl">CLOSE BUT TOO BENT </span><span class="num" id="me-bent">0</span></div>
+      </div>
+      <div class="drag-hint">drag to orbit</div>
+    </div>
+
+    <div class="state-strip">
+      <span><span class="lbl">SPECIES </span><span class="val plain" id="me-species">&mdash;</span></span>
+      <span><span class="lbl">NET CHARGE </span><span class="val" id="me-charge">0</span></span>
+      <span><span class="lbl">ENDS </span><span class="val plain" id="me-ends">&mdash;</span></span>
+      <span><span class="lbl">WATERS ON THE METHYL </span><span class="val" id="me-phobic-waters">0</span></span>
+    </div>
+
+    <div class="controls auto">
+      <div class="control">
+        <div class="control-head">
+          <label for="me-ph">pH</label>
+          <span class="value" id="me-ph-value">7.4</span>
+        </div>
+        <input type="range" id="me-ph" min="0" max="14" step="0.1" value="7.4">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="me-amp">Brownian amplitude</label>
+          <span class="value" id="me-amp-value">0.28 Å</span>
+        </div>
+        <input type="range" id="me-amp" min="0" max="0.6" step="0.01" value="0.28">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="me-tumble">Tumble</label>
+          <span class="value" id="me-tumble-value">45°</span>
+        </div>
+        <input type="range" id="me-tumble" min="0" max="70" step="1" value="45">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="me-speed">Speed</label>
+          <span class="value" id="me-speed-value">1.0×</span>
+        </div>
+        <input type="range" id="me-speed" min="0" max="3" step="0.05" value="1">
+      </div>
+      <button class="play-toggle" id="me-play" type="button">Pause</button>
+      <label class="toggle" for="me-phobic">
+        <input type="checkbox" id="me-phobic" checked>
+        Shade the methyl side chain
+      </label>
+      <label class="toggle" for="me-show-bent">
+        <input type="checkbox" id="me-show-bent">
+        Show contacts rejected for angle
+      </label>
+    </div>
+  </section>
+
+  <section class="legend" aria-label="Atom and bond color key">
+    <div class="legend-item"><span class="swatch" style="background:var(--c-carbon)"></span>Carbon</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-oxygen)"></span>Oxygen</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-nitrogen)"></span>Nitrogen</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-hydrogen)"></span>Hydrogen</div>
+    <div class="legend-item"><span class="swatch" style="background:#7a6a4a"></span>Shaded methyl side chain</div>
+    <div class="legend-item"><span class="swatch charge-pos"></span>Positive charge</div>
+    <div class="legend-item"><span class="swatch charge-neg"></span>Negative charge</div>
+    <div class="legend-item"><span class="swatch bond" style="background:var(--accent)"></span>Hydrogen bond</div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">WHAT TO LOOK FOR</span>
+    <div>
+      <p>
+        <b>The readout that never moves.</b> Bonds at the &ndash;CH<sub>3</sub>
+        stay at <b>zero</b> &mdash; at every pH, at every amplitude, for as
+        long as you leave it running. Four waters are parked against the side
+        chain permanently and not one of them ever does anything. Every other
+        slide in this deck has had a number that responds to the knobs; this
+        one is here because it does not.
+      </p>
+      <p>
+        <b>Now move the pH slider and watch the rest of the molecule.</b> The
+        carboxyl end deprotonates at 2.34 and the amino end at 9.69 &mdash; the
+        two previous slides, replayed on one molecule, in the right order. The
+        methyl in between does not notice either one.
+      </p>
+      <p>
+        <b>Stop at pH 7.4 and read ENDS.</b> Net charge is zero, but the
+        molecule is <code>+1</code> at one end and <code>&minus;1</code> at the
+        other: a <b>zwitterion</b>. This is what every free amino acid actually
+        is in water, and it is why they are solids that melt high rather than
+        oily liquids. Net-zero is not the same as uncharged, and the ENDS
+        readout exists to keep those apart.
+      </p>
+      <p>
+        <b>Why the nothing matters.</b> Water cannot hydrogen bond to a methyl,
+        so the waters next to one have to satisfy their bonds among
+        <i>themselves</i> &mdash; in a more ordered arrangement than they would
+        adopt in bulk. Order costs entropy, and the cheapest way for the system
+        to pay less of it is to push the greasy surfaces together, out of
+        contact with water. That shove is the <b>hydrophobic effect</b>: it
+        folds a protein's core, it holds every membrane in your body together,
+        and it is why oil will not mix with vinegar. Swapping glycine's
+        no-side-chain for alanine's single methyl is already enough to change
+        where a residue prefers to sit in a folded protein.
+      </p>
+    </div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">LIMITS</span>
+    <div>
+      <p>
+        <b>The most important limit in the deck is on this slide.</b> The
+        ordering just described is <i>not modelled here</i>. The waters at the
+        methyl are placed at van der Waals contact and jiggled exactly like
+        every other water on screen; real hydration-shell waters against a
+        hydrophobic surface adopt tangential orientations so they can keep
+        hydrogen bonding to each other. The entropy cost that <i>is</i> the
+        hydrophobic effect does not appear in this picture at all. What you can
+        see here is only the <b>precondition</b> for it &mdash; the absence of
+        a bond. The force itself is a statistical, entropic thing that no
+        single-molecule snapshot can show.
+      </p>
+      <p>
+        <b>The third N&ndash;H is constructed</b>, as on the amino slide: PDB
+        component <code>ALA</code> is the neutral form, and the ammonium
+        hydrogen is placed at the remaining tetrahedral vertex at
+        <code>1.010 Å</code> with nothing re-relaxed. The carboxylate's bond
+        <i>order</i> is redrawn as one-and-a-half but its <i>lengths</i> are
+        still the acid's.
+      </p>
+      <p>
+        The drawing steps between species at each pKa while a real solution
+        blends them; pKa 2.34 and 9.69 are free alanine in dilute water, and
+        both shift once the residue is inside a peptide. Same geometric
+        <code>2.5 Å</code> / <code>120&deg;</code> bond test and the same
+        hand-tuned sine-wave motion as everywhere else &mdash; not physics.
       </p>
     </div>
   </section>

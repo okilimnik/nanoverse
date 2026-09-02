@@ -12,7 +12,14 @@ chemical idea visible and manipulable, and when the user can change one thing an
 watch the consequence.
 
 - Prefer **real structural data** (fetch from the PDB) over invented geometry.
-  Chemistry that is made up teaches nothing.
+  Chemistry that is made up teaches nothing. The PDB Chemical Component
+  Dictionary is the workhorse: `https://files.rcsb.org/ligands/download/<ID>.cif`
+  carries ideal coordinates, elements *and* bond orders in one file, which is
+  more than the `_ideal.sdf` or the (nonexistent) `_ideal.pdb` give you. Where
+  a slide needs two states, look for two components — acetic acid and acetate
+  are `ACY`/`ACT`, mercaptoethanol and its disulfide are `BME`/`HED` — rather
+  than deriving the second one by hand. When you do have to derive one, say so
+  on the slide, and prefer removing an atom (exact) to adding one (constructed).
 - Drive appearance from **per-atom attributes** so the picture is derived from the
   data, not hand-painted.
 - Leave a **knob** the user can turn (a slider, a control) rather than a
@@ -59,6 +66,24 @@ sit at the top level, so `npm run build` works from wherever you cloned to.
   add new general-purpose math here, not in a topic namespace. Quaternions
   exist so a rotating body's geometry and its rendered transform are handed
   the *same four numbers* and cannot disagree about Euler-angle ordering.
+- `nanoverse/solvent.cljs` — the water model every "functional group in water"
+  slide shares, and still **zero rendering dependency**: lone-pair directions
+  computed from a molecule's own coordinates, automatic hydration-shell
+  placement, the geometric H-bond test, `protonate`/`deprotonate`, rigid
+  three-point `align`, and Henderson–Hasselbalch. A slide should never
+  hand-place a water — hand-placing means the picture shows what the author
+  expected. Note the ordering inside `hydrate`: **donor waters are placed
+  before lone-pair waters**, because a donor's water has exactly one possible
+  position (fixed by a measured bond direction) while a lone pair has two or
+  three alternatives. Reverse that and a molecule's single acidic proton
+  silently loses its water to a lone pair that had somewhere else to go.
+- `nanoverse/scene.cljs` — the Babylon half of the same pattern: engine,
+  camera, materials, drawing a molecule from `{:atoms :bonds :charges}`,
+  building a state group, the per-frame update, and the standard control
+  wiring. A slide hands it one or more **states** (protonation, redox); every
+  state is built once up front and switching is a visibility flip, so dragging
+  a pH slider never rebuilds a mesh. `titration!` wires a pH slider to an
+  ordered ladder of states.
 
 - `nanoverse/deck.cljs` — shared Babylon helpers plus the slide navigation.
   Knows nothing about any specific slide, which is what keeps it free of a
@@ -79,6 +104,13 @@ To add a slide: new `src/nanoverse/<topic>/geometry.cljs` + `babylon_core.cljs`
 exposing `build`, a `<section class="slide" id="slide-<topic>">` in
 `web/index.html` with prefixed ids, and one more entry in `nanoverse.main`'s
 slide vector. The bundle script doesn't change — there is only one bundle.
+
+For a "group in water" slide most of that work is already done: `geometry.cljs`
+declares real coordinates plus what the molecule can do (`:acceptors`,
+`:donors`, `:hydrophobic`) and calls `solvent/hydrate`; `babylon_core.cljs`
+calls `scene/init`, `scene/state-group!`, `scene/controls!` and reports
+whatever counts that slide cares about. Both files stay short, and the
+chemistry stays the part you read.
 
 ### Babylon specifics to know
 
