@@ -31,7 +31,9 @@ watch the consequence.
 ## Web visualizations
 
 Visualizations are slides in a single deck: **one** page, `web/index.html`,
-with arrow / dot / keyboard navigation between slides. They are written in **ClojureScript**, compiled
+with a side menu (collapsible on narrow screens) plus arrow / dot / keyboard
+navigation. Slides are grouped into **chapters**; the dots show position within
+the current chapter, and the side menu is the map of the whole deck. They are written in **ClojureScript**, compiled
 with **Squint** (`squint-cljs` — a lightweight CLJS-to-JS compiler that runs on
 plain Node, no JVM), and rendered with **Babylon.js** (loaded from cdnjs as a
 classic global script exposing `window.BABYLON` — the plain-`<script src>`
@@ -90,7 +92,7 @@ sit at the top level, so `npm run build` works from wherever you cloned to.
 - `nanoverse/deck.cljs` — shared Babylon helpers plus the slide navigation.
   Knows nothing about any specific slide, which is what keeps it free of a
   require cycle; `nanoverse/main.cljs` is the single entry point that pairs the
-  deck with its slide list.
+  deck with its chapter list.
 - A slide's `babylon_core.cljs` exposes **`(build prefix)`** and does nothing at
   module load. It creates its own engine on its own canvas and returns a handle
   via `deck/slide-handle`. Slides are built lazily on first visit, and only the
@@ -104,8 +106,16 @@ Generated output (`out/`, `web/js/`) is gitignored — a fresh clone must run
 
 To add a slide: new `src/nanoverse/<topic>/geometry.cljs` + `babylon_core.cljs`
 exposing `build`, a `<section class="slide" id="slide-<topic>">` in
-`web/index.html` with prefixed ids, and one more entry in `nanoverse.main`'s
-slide vector. The bundle script doesn't change — there is only one bundle.
+`web/index.html` with prefixed ids, and one more entry in the right chapter's
+`:slides` vector in `nanoverse.main`. The bundle script doesn't change — there
+is only one bundle.
+
+One topic may serve several slides where they are genuinely the same picture
+with different contents — `nanoverse/aminoacid` exposes `build-charged`,
+`build-polar`, `build-special` and `build-nonpolar` from one parameterised
+builder, so nothing about the shared machinery can differ between them by
+accident. Its coordinates are **generated** by `tools/cif_to_cljs.mjs` from the
+committed `.cif` files; regenerate, don't hand-edit.
 
 For a "group in water" slide most of that work is already done: `geometry.cljs`
 declares real coordinates plus what the molecule can do (`:acceptors`,

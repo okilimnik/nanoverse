@@ -9,9 +9,13 @@ with [Babylon.js](https://www.babylonjs.com/).
 nothing to install. Everything below is for running or changing it locally.
 
 One page, `web/index.html`, holding a **deck of slides** you move through with
-the on-screen arrows, the dots, or the ← → keys. Eight slides, one per
-functional group, all asking the same question — *what does water do around
-this group?* — and each built to be read against the one before it:
+the side menu, the on-screen arrows, the dots, or the ← → keys. Twelve slides
+in **two chapters** — the side menu is the map, and on a narrow screen it
+collapses behind the ☰ button.
+
+**Chapter 1 — Functional groups** (8 slides). One group at a time, in water,
+all asking the same question — *what does water do around this group?* — and
+each built to be read against the one before it:
 
 - **1–3 what the group can do with water.** An `–OH` gives *and* takes; swap it
   for a `–CHO` and it can only take; move that same `C=O` into the middle of
@@ -21,6 +25,14 @@ this group?* — and each built to be read against the one before it:
   three times over.
 - **7–8 what the element itself decides.** Swap oxygen for the sulfur below it
   in the periodic table, and then look at a group that does nothing at all.
+
+**Chapter 2 — Amino acids** (4 slides). The same groups, now bolted onto one
+shared backbone. All twenty-one residues are rigidly posed on the *same*
+N–CA–C frame and drawn as the cell-pH zwitterion, so clicking between them
+moves nothing except the side chain — and **only the side chain is hydrated**,
+which makes every count on screen a property of the side chain and comparable
+from one residue to the next. Four slides, one per class of the standard
+textbook chart, ending on the one where that chart visibly stops working.
 
 ---
 
@@ -64,6 +76,13 @@ npm run serve
 | 6 | Phosphate in Water | 3-phosphoglycerate | **pH** | Three pKas — charge as a design tool |
 | 7 | Sulfhydryl in Water | Mercaptoethanol ⇌ disulfide | bond strength, oxidise | Sulfur is not oxygen |
 | 8 | Methyl in Water | Alanine | **pH**, shade the side chain | A group that does nothing, and why that matters |
+
+| # | Slide | Residues | Knob | The point |
+|---|---|---|---|---|
+| 9 | Charged Side Chains | Asp, Glu, Lys, Arg, His | residue, **pH** | Nine pH units of ladder — and only histidine flips near a cell |
+| 10 | Polar, Uncharged | Ser, Thr, Asn, Gln | residue, shade the grease | Defined by a negative: no pH charges them |
+| 11 | Special Cases | Gly, Pro, Cys, Sec | residue, **pH** | No side chain; a side chain tied to its own backbone; S vs Se |
+| 12 | Nonpolar, Hydrophobic | Ala, Val, Leu, Ile, Met, Phe, Tyr, Trp | residue, shade the grease | Six form no bond at all — and three of the eight break the label |
 
 Only the slide you're looking at runs a render loop — the others are paused,
 and a slide you haven't opened yet hasn't been built at all.
@@ -526,10 +545,16 @@ src/nanoverse/
     geometry.cljs                  chemistry + math — zero rendering dependency
     babylon_core.cljs              Babylon scene wiring + this slide's readouts
   aldehyde/    …  ketone/     …  carboxyl/   …    (the same two files for each
-  amino/       …  phosphate/  …  sulfhydryl/ …     of the eight topics)
+  amino/       …  phosphate/  …  sulfhydryl/ …     of the eight group topics)
   methyl/      …
+  aminoacid/                       chapter 2 — four slides, one namespace
+    residues.cljs                  GENERATED coords for all 21 — do not hand-edit
+    geometry.cljs                  what each side chain is allowed to do
+    babylon_core.cljs              one builder, four `build-*` entry points
+tools/
+  cif_to_cljs.mjs                  regenerates residues.cljs from structures/*.cif
 web/
-  index.html                       the deck: CSS, all eight slides' DOM, CDN <script>
+  index.html                       the deck: CSS, all twelve slides' DOM, CDN <script>
   js/deck.js                       esbuild bundle   — generated, gitignored
 out/                               squint output    — generated, gitignored
 structures/                        provenance only — never loaded at runtime
@@ -537,8 +562,32 @@ structures/                        provenance only — never loaded at runtime
   acetaldehyde.sdf                 PubChem CID 177 conformer (with bond orders)
   ACN.cif  ACY.cif  ACT.cif        acetone; acetic acid and acetate
   NME.cif  3PG.cif                 methylamine; 3-phosphoglyceric acid
-  BME.cif  HED.cif  ALA.cif        mercaptoethanol, its disulfide; alanine
+  BME.cif  HED.cif                 mercaptoethanol and its disulfide
+  ALA.cif … TRP.cif, SEC.cif       the 20 standard amino acids + selenocysteine
 ```
+
+The amino-acid chapter is **one topic with four entry points**, not four
+copies of the same file. That is deliberate: the four slides are one
+experiment run four times, and if the code that draws them is literally the
+same code then nothing about the backbone, the water model, the bond test or
+the readouts can differ between them by accident. A slide chooses only which
+residues go in its picker.
+
+Twenty-one residues is more geometry than anyone should transcribe by hand, so
+`src/nanoverse/aminoacid/residues.cljs` is **generated**:
+
+```sh
+node tools/cif_to_cljs.mjs > src/nanoverse/aminoacid/residues.cljs
+```
+
+It reads the committed `.cif` files, takes `pdbx_model_Cartn_*_ideal`, the
+`type_symbol` and the bond orders, and emits an aromatic bond as order 1.5
+rather than the `SING`/`DOUB` the file records — a CIF has to commit to one
+Kekulé structure for a ring whose electrons are not arranged that way. Note
+that several CCD amino-acid entries are **already ions**: Arg, Lys and His are
+deposited protonated (formal charge +1), Asp and Glu as neutral acids. That
+decides which direction each slide constructs from, since removing an atom is
+exact and adding one is not.
 
 All eight slides share two namespaces beyond `vec3` and `deck`. **`solvent.cljs`** is
 the water model — lone-pair directions computed from a molecule's own
@@ -581,7 +630,8 @@ To add a slide: a new `src/nanoverse/<topic>/geometry.cljs` +
 prefixed, and one more entry in `nanoverse.main`'s slide vector. The build
 scripts don't change — there is only one bundle.
 
-Coordinates are **inlined** in each `geometry.cljs`. All but one come from the
+Coordinates are **inlined** in each `geometry.cljs` (or, for the twenty-one
+residues, in the generated `residues.cljs` beside it). All but one come from the
 RCSB Chemical Component Dictionary — `https://files.rcsb.org/ligands/download/<ID>.cif`
 gives ideal coordinates, elements *and* bond orders in a single file, which the
 `_ideal.sdf` doesn't and an `_ideal.pdb` doesn't exist for. The exception is
@@ -598,6 +648,19 @@ anything else — otherwise crossing a pKa would spin the molecule, which reads
 as chemistry when it's only bookkeeping. Where no second component exists,
 removing an atom (exact) is preferred to adding one (constructed), and every
 slide says on its face which it did.
+
+The amino-acid chapter carries **one further construction**, and it is the only
+geometry in the deck that is not read out of a file: each freely rotating
+side-chain bond is turned to whichever *staggered* position (−60°, +60°, 180°)
+leaves the residue least folded onto itself. A CCD ideal conformer is one
+arbitrary low-energy pose and several of them curl the side chain back onto
+their own backbone — asparagine's amide oxygen lands 2.8 Å from the backbone
+carboxylate with its lone pair pointing straight at it, leaving nowhere to put
+the water that should be bonding to it, so the slide would report asparagine
+accepting *nothing*. Bond lengths and bond angles stay untouched deposited
+values throughout; a bond inside a ring is not turned at all, because
+`solvent/branch-keys` sees the walk come back on itself and declines — which
+is why proline and the aromatic rings arrive exactly as deposited.
 
 ### Deploying
 

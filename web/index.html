@@ -24,6 +24,7 @@
     --c-nitrogen: #5b7fd4;
     --c-sulfur: #e3c04a;
     --c-phosphorus: #e8894a;
+    --c-selenium: #b8862b;
   }
 
   *{ box-sizing:border-box; }
@@ -443,13 +444,167 @@
   @media (max-width: 560px){
     .deck-hint{ display: none; }
   }
+
+  /* --- side menu ------------------------------------------------------ */
+  .deck-nav{
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 258px;
+    z-index: 40;
+    overflow-y: auto;
+    padding: 22px 0 32px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    transform: translateX(-100%);
+    transition: transform .22s ease;
+  }
+  .deck-nav.open{ transform: none; }
+  .nav-brand{
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 22px;
+    padding: 0 18px;
+  }
+  .nav-chapter{ margin-bottom: 26px; }
+  .nav-title{
+    font-family: "IBM Plex Sans Condensed", ui-sans-serif, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--text);
+    margin: 0 0 2px;
+    padding: 0 18px;
+  }
+  .nav-blurb{
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--text-faint);
+    margin: 0 0 10px;
+    padding: 0 18px;
+  }
+  .nav-item{
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+    width: 100%;
+    padding: 7px 18px;
+    border: 0;
+    border-left: 2px solid transparent;
+    background: none;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    transition: color .13s, background .13s, border-color .13s;
+  }
+  .nav-item:hover{ color: var(--text); background: var(--panel-2); }
+  .nav-item.on{
+    color: var(--accent);
+    border-left-color: var(--accent);
+    background: var(--panel-2);
+  }
+  .nav-item:focus-visible{ outline: 2px solid var(--accent); outline-offset: -2px; }
+  .nav-num{
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    color: var(--text-faint);
+    flex: none;
+    width: 12px;
+  }
+  .nav-item.on .nav-num{ color: var(--accent-dim); }
+  .nav-text{ line-height: 1.35; }
+
+  .deck-scrim{
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: rgba(4, 7, 11, 0.64);
+  }
+
+  .nav-btn.menu{ font-size: 15px; }
+  .deck-chapter{
+    font-family: "IBM Plex Sans Condensed", ui-sans-serif, sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .dot.off{ display: none; }
+
+  /* Wide enough for the menu and the 900px column side by side: pin the menu
+     open and give the page room for it. Below this the menu is a drawer. */
+  @media (min-width: 1180px){
+    body{ padding-left: 258px; }
+    .deck-nav{ transform: none; }
+    .nav-btn.menu, .deck-scrim{ display: none !important; }
+  }
+  @media (max-width: 760px){
+    .deck-chapter{ display: none; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .deck-nav{ transition: none; }
+  }
+
+  /* --- residue picker -------------------------------------------------- */
+  .residue-picker{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .chip{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    min-width: 54px;
+    padding: 7px 8px 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel-2);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: border-color .13s, color .13s, background .13s;
+  }
+  .chip:hover{ border-color: var(--accent-dim); color: var(--text); }
+  .chip:focus-visible{ outline: 2px solid var(--accent); outline-offset: 2px; }
+  .chip.on{
+    border-color: var(--accent);
+    color: var(--accent);
+    background: #0f1c1c;
+  }
+  .chip-one{
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.1;
+  }
+  .chip-three{
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    color: var(--text-faint);
+  }
+  .chip.on .chip-three{ color: var(--accent-dim); }
+  /* a hairline under the code, coloured by what the side chain carries */
+  .chip.pos{ box-shadow: inset 0 -2px 0 rgba(91, 127, 212, 0.75); }
+  .chip.neg{ box-shadow: inset 0 -2px 0 rgba(226, 85, 90, 0.75); }
 </style>
+
+<aside class="deck-nav" id="deck-nav" aria-label="Chapters and slides"></aside>
+<div class="deck-scrim" id="deck-scrim" hidden></div>
 
 <div class="page">
   <div class="deck-bar">
+    <button class="nav-btn menu" id="deck-menu" type="button" aria-label="Open the slide menu"
+            aria-expanded="false" aria-controls="deck-nav">&#9776;</button>
     <button class="nav-btn" id="deck-prev" type="button" aria-label="Previous slide">&#8592;</button>
     <button class="nav-btn" id="deck-next" type="button" aria-label="Next slide">&#8594;</button>
-    <div class="deck-dots" id="deck-dots" role="tablist" aria-label="Slides"></div>
+    <span class="deck-chapter" id="deck-chapter"></span>
+    <div class="deck-dots" id="deck-dots" role="tablist" aria-label="Slides in this chapter"></div>
     <span class="deck-hint"><kbd>&#8592;</kbd> <kbd>&#8594;</kbd> to move between slides</span>
     <span class="deck-position" id="deck-position">1 / 8</span>
   </div>
@@ -1660,6 +1815,710 @@
         hand-tuned sine-wave motion as everywhere else &mdash; not physics.
       </p>
     </div>
+  </section>
+</main>
+</section>
+
+<section class="slide" id="slide-aa-charged" tabindex="-1" role="group" aria-roledescription="slide" aria-label="Charged Side Chains — Asp, Glu, Lys, Arg, His">
+<div class="page">
+  <p class="eyebrow">Amino acids &rarr; charged side chains &rarr; the pKa ladder</p>
+  <h1>Charged Side Chains</h1>
+  <p class="subtitle">
+    Two acids and three bases, on the same backbone, in the same pose. Pick a
+    residue and drag the <b>pH</b>: each one hands its proton over at its own
+    pKa, and the ladder runs from <code>3.65</code> to <code>12.48</code>.
+    Only one of the five changes hands anywhere near the pH of a cell &mdash;
+    find it.
+  </p>
+
+  <div class="compound-card">
+    <p class="cbody">
+      <span class="cname" id="aac-name">&mdash;</span>
+      <span id="aac-blurb"></span>
+    </p>
+  </div>
+</div>
+
+<main>
+  <section class="stage-panel">
+    <div class="stage-frame">
+      <canvas class="render-canvas" id="aac-canvas" width="620" height="620"></canvas>
+      <div class="readout">
+        <div><span class="lbl">SIDE-CHAIN H-BONDS </span><span class="num" id="aac-count">0</span></div>
+        <div><span class="lbl">SIDE CHAIN GIVES </span><span class="num" id="aac-gives">0</span></div>
+        <div><span class="lbl">SIDE CHAIN TAKES </span><span class="num" id="aac-takes">0</span></div>
+        <div><span class="lbl">CLOSE BUT TOO BENT </span><span class="num" id="aac-bent">0</span></div>
+      </div>
+      <div class="drag-hint">drag to orbit</div>
+    </div>
+
+    <div class="control">
+      <div class="control-head">
+        <label id="aac-picker-label">Side chain</label>
+      </div>
+      <div class="residue-picker" id="aac-residues" role="group" aria-labelledby="aac-picker-label"></div>
+    </div>
+
+    <div class="state-strip">
+      <span><span class="lbl">SPECIES </span><span class="val plain" id="aac-species">&mdash;</span></span>
+      <span><span class="lbl">SIDE-CHAIN CHARGE </span><span class="val" id="aac-charge">&mdash;</span></span>
+      <span><span class="lbl">SIDE-CHAIN pKa </span><span class="val" id="aac-pka">&mdash;</span></span>
+      <span><span class="lbl">CHARGED AT THIS pH </span><span class="val" id="aac-charged">&mdash;</span></span>
+      <span><span class="lbl">HYDROPATHY </span><span class="val" id="aac-hydropathy">&mdash;</span></span>
+      <span><span class="lbl">DRAWN </span><span class="val plain" id="aac-forms">&mdash;</span></span>
+    </div>
+
+    <div class="controls auto">
+      <div class="control">
+        <div class="control-head">
+          <label for="aac-ph">pH</label>
+          <span class="value" id="aac-ph-value">7.4</span>
+        </div>
+        <input type="range" id="aac-ph" min="0" max="14" step="0.1" value="7.4">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="aac-amp">Brownian amplitude</label>
+          <span class="value" id="aac-amp-value">0.26 Å</span>
+        </div>
+        <input type="range" id="aac-amp" min="0" max="0.6" step="0.01" value="0.26">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="aac-tumble">Tumble</label>
+          <span class="value" id="aac-tumble-value">45°</span>
+        </div>
+        <input type="range" id="aac-tumble" min="0" max="70" step="1" value="45">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="aac-speed">Speed</label>
+          <span class="value" id="aac-speed-value">1.0×</span>
+        </div>
+        <input type="range" id="aac-speed" min="0" max="3" step="0.05" value="1">
+      </div>
+      <button class="play-toggle" id="aac-play" type="button">Pause</button>
+      <label class="toggle" for="aac-show-bent">
+        <input type="checkbox" id="aac-show-bent">
+        Show contacts rejected for angle
+      </label>
+    </div>
+  </section>
+
+  <section class="legend" aria-label="Atom and bond color key">
+    <div class="legend-item"><span class="swatch" style="background:var(--c-carbon)"></span>Carbon</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-nitrogen)"></span>Nitrogen</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-oxygen)"></span>Oxygen</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-hydrogen)"></span>Hydrogen</div>
+    <div class="legend-item"><span class="swatch half"></span>Delocalised bond (one-and-a-half)</div>
+    <div class="legend-item"><span class="swatch charge-pos"></span>Positive charge</div>
+    <div class="legend-item"><span class="swatch charge-neg"></span>Negative charge</div>
+    <div class="legend-item"><span class="swatch bond" style="background:var(--accent)"></span>Hydrogen bond</div>
+    <div class="legend-item"><span class="swatch bond" style="background:#6d4b52"></span>Close, but rejected for angle</div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">WHAT TO LOOK FOR</span>
+    <div>
+      <p>
+        <b>Walk the pH from 0 to 14 on each residue in turn.</b> Aspartate goes
+        negative at 3.65, glutamate at 4.25, histidine at 6.00, lysine at 10.53,
+        arginine at 12.48. Five residues, one shared chemistry &mdash; a proton
+        moving &mdash; and nearly nine pH units between the first and the last.
+        &ldquo;Charged&rdquo; is not a property a side chain simply has; it is a
+        property it has <i>at a given pH</i>.
+      </p>
+      <p>
+        <b>Now set the pH to 7.4 and click through all five.</b> Four of them
+        read over 99% charged and do not budge over any part of the slider a
+        cell ever visits. Histidine reads about <b>4%</b> &mdash; and, unlike
+        the others, it is <i>moving</i>: nudge the slider to 7.0 and it climbs
+        to 9%, to 6.0 and it is half and half. That responsiveness is why
+        histidine turns up in the active site of enzyme after enzyme. At cell
+        pH it is the only side chain that can pick a proton up and put it down
+        again, because at cell pH it is the only one sitting on the fence.
+      </p>
+      <p>
+        <b>Compare aspartate with glutamate.</b> One CH<sub>2</sub> apart, and
+        the pKa moves by 0.6 &mdash; holding the same carboxyl one carbon
+        further from the positively charged backbone makes it a slightly weaker
+        acid. Then compare lysine with arginine: both positive, but arginine's
+        guanidinium spreads its charge over three nitrogens and offers
+        <b>five</b> N&ndash;H bonds to lysine's three. Watch GIVES.
+      </p>
+      <p>
+        <b>Take lysine below and above 10.53 and watch TAKES.</b> It jumps from
+        0 to 1. The nitrogen's lone pair was busy holding a proton; let the
+        proton go and the pair is free to accept. That is exactly the trade the
+        methylamine slide showed in the previous chapter &mdash; same group,
+        same swap, now on a residue.
+      </p>    </div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">LIMITS</span>
+    <div>
+      <p>
+        <b>Only the side chain is hydrated.</b> No water is placed on the
+        backbone at all, even though the &ndash;NH<sub>3</sub><sup>+</sup> and
+        &ndash;COO<sup>&minus;</sup> ends are in reality the most hydrated part
+        of a free amino acid. That is deliberate: it makes every number on
+        screen a property of the side chain, comparable from one residue to the
+        next. It also means the picture is <i>not</i> what a free amino acid in
+        water looks like.
+      </p>
+      <p>
+        <b>The backbone is held fixed at the cell-pH zwitterion</b>
+        (&ndash;NH<sub>3</sub><sup>+</sup> / &ndash;COO<sup>&minus;</sup>) at
+        every pH the slider reaches, so SIDE-CHAIN CHARGE is the side chain's
+        alone. In reality the backbone titrates too, near pKa 2.2 and 9.5 &mdash;
+        the methyl slide in the previous chapter is where that happens.
+      </p>
+      <p>
+        <b>Arginine is drawn only as the cation.</b> Its neutral form needs a
+        choice about which nitrogen keeps the proton, and that choice would be
+        an invention about a species you will never meet in biology. So above
+        pKa 12.48 the CHARGED readout falls while the drawing does not change,
+        and DRAWN says &ldquo;one form only&rdquo;. Every other residue here has
+        both forms built from the deposited structure by <i>removing</i> a
+        hydrogen, which is exact.
+      </p>
+      <p>
+        <b>Two constructions, both stated.</b> The third backbone N&ndash;H is
+        placed at the remaining tetrahedral vertex at <code>1.010 Å</code>, and
+        each side chain is turned about its own freely rotating single bonds to
+        the staggered position that leaves it least folded onto its backbone.
+        Bond lengths and bond angles are untouched deposited values throughout;
+        it is torsions that were chosen, because the deposited &ldquo;ideal&rdquo;
+        conformer is one arbitrary pose and several of them curl the side chain
+        onto the backbone hard enough to leave nowhere for a water to go.
+      </p>
+      <p>
+        pKa values are for the free amino acid in dilute water at 25&nbsp;&deg;C.
+        Inside a protein the same side chain routinely shifts by two units or
+        more &mdash; that shift is most of what an active site <i>is</i>. Charge
+        clouds are formal-charge bookkeeping, not computed electron density, and
+        bonds light on the deck's usual geometric <code>2.5 Å</code> /
+        <code>120&deg;</code> proxy. The drawing steps at each pKa; CHARGED AT
+        THIS pH is the continuous, honest version.
+      </p>    </div>
+  </section>
+</main>
+</section>
+<section class="slide" id="slide-aa-polar" tabindex="-1" role="group" aria-roledescription="slide" aria-label="Polar Uncharged Side Chains — Ser, Thr, Asn, Gln">
+<div class="page">
+  <p class="eyebrow">Amino acids &rarr; polar, uncharged side chains</p>
+  <h1>Polar, Uncharged Side Chains</h1>
+  <p class="subtitle">
+    Four side chains that hydrogen bond enthusiastically and <b>never carry a
+    charge</b> &mdash; at any pH, in any cell. There is no pH slider on this
+    slide, and its absence is the lesson: these residues are defined by a
+    negative. Watch the <b>SIDE-CHAIN pKa</b> readout as you click through
+    them.
+  </p>
+
+  <div class="compound-card">
+    <p class="cbody">
+      <span class="cname" id="aap-name">&mdash;</span>
+      <span id="aap-blurb"></span>
+    </p>
+  </div>
+</div>
+
+<main>
+  <section class="stage-panel">
+    <div class="stage-frame">
+      <canvas class="render-canvas" id="aap-canvas" width="620" height="620"></canvas>
+      <div class="readout">
+        <div><span class="lbl">SIDE-CHAIN H-BONDS </span><span class="num" id="aap-count">0</span></div>
+        <div><span class="lbl">SIDE CHAIN GIVES </span><span class="num" id="aap-gives">0</span></div>
+        <div><span class="lbl">SIDE CHAIN TAKES </span><span class="num" id="aap-takes">0</span></div>
+        <div><span class="lbl">CLOSE BUT TOO BENT </span><span class="num" id="aap-bent">0</span></div>
+      </div>
+      <div class="drag-hint">drag to orbit</div>
+    </div>
+
+    <div class="control">
+      <div class="control-head">
+        <label id="aap-picker-label">Side chain</label>
+      </div>
+      <div class="residue-picker" id="aap-residues" role="group" aria-labelledby="aap-picker-label"></div>
+    </div>
+
+    <div class="state-strip">
+      <span><span class="lbl">SPECIES </span><span class="val plain" id="aap-species">&mdash;</span></span>
+      <span><span class="lbl">SIDE-CHAIN CHARGE </span><span class="val" id="aap-charge">&mdash;</span></span>
+      <span><span class="lbl">SIDE-CHAIN pKa </span><span class="val" id="aap-pka">&mdash;</span></span>
+      <span><span class="lbl">HYDROPATHY </span><span class="val" id="aap-hydropathy">&mdash;</span></span>
+      <span><span class="lbl">WATERS ON GREASE </span><span class="val" id="aap-phobic-waters">&mdash;</span></span>
+    </div>
+
+    <div class="controls auto">
+      <div class="control">
+        <div class="control-head">
+          <label for="aap-amp">Brownian amplitude</label>
+          <span class="value" id="aap-amp-value">0.26 Å</span>
+        </div>
+        <input type="range" id="aap-amp" min="0" max="0.6" step="0.01" value="0.26">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="aap-tumble">Tumble</label>
+          <span class="value" id="aap-tumble-value">45°</span>
+        </div>
+        <input type="range" id="aap-tumble" min="0" max="70" step="1" value="45">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="aap-speed">Speed</label>
+          <span class="value" id="aap-speed-value">1.0×</span>
+        </div>
+        <input type="range" id="aap-speed" min="0" max="3" step="0.05" value="1">
+      </div>
+      <button class="play-toggle" id="aap-play" type="button">Pause</button>
+      <label class="toggle" for="aap-phobic">
+        <input type="checkbox" id="aap-phobic">
+        Shade the greasy part of the side chain
+      </label>
+      <label class="toggle" for="aap-show-bent">
+        <input type="checkbox" id="aap-show-bent">
+        Show contacts rejected for angle
+      </label>
+    </div>
+  </section>
+
+  <section class="legend" aria-label="Atom and bond color key">
+    <div class="legend-item"><span class="swatch" style="background:var(--c-carbon)"></span>Carbon</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-nitrogen)"></span>Nitrogen</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-oxygen)"></span>Oxygen</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-hydrogen)"></span>Hydrogen</div>
+    <div class="legend-item"><span class="swatch bond" style="background:var(--accent)"></span>Hydrogen bond</div>
+    <div class="legend-item"><span class="swatch bond" style="background:#6d4b52"></span>Close, but rejected for angle</div>
+    <div class="legend-item"><span class="swatch" style="background:#7a6a4a"></span>Shaded hydrophobic surface</div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">WHAT TO LOOK FOR</span>
+    <div>
+      <p>
+        <b>The readout that says nothing.</b> SIDE-CHAIN pKa reads
+        <i>none in water</i> for all four. That is not a missing value &mdash;
+        it is the definition of this class. A serine hydroxyl does ionise, at a
+        pKa somewhere around 13&ndash;15, which is off the end of any slider in
+        this deck and off the end of anything a cell does. Compare the previous
+        slide, where every residue had a number.
+      </p>
+      <p>
+        <b>Serine, then threonine.</b> One methyl group is the only difference,
+        and the whole hydrophobic story arrives with it: waters appear beside
+        the &ndash;OH's waters that never bond to anything, however long you
+        watch. Tick <i>shade the greasy part</i> to see which end is which. A
+        single side chain can be polar and oily at the same time, in different
+        directions.
+      </p>
+      <p>
+        <b>Asparagine is the interesting one.</b> Its oxygen TAKES and its two
+        N&ndash;H bonds GIVE &mdash; both at once, from one small group. But the
+        nitrogen never accepts anything, no matter where the waters drift. An
+        amide nitrogen's lone pair is delocalised into the neighbouring
+        C&#61;O and is simply not available. Nothing on this slide special-cases
+        that: the nitrogen is not declared an acceptor because it is not one.
+      </p>
+      <p>
+        <b>Then glutamine.</b> Same amide, one CH<sub>2</sub> further out
+        &mdash; exactly the step aspartate takes to glutamate on the previous
+        slide. Biology keeps both members of each pair because reach matters:
+        an interaction a side chain cannot stretch to is one it cannot make.
+      </p>    </div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">LIMITS</span>
+    <div>
+      <p>
+        <b>Only the side chain is hydrated</b>, as on every slide in this
+        chapter, so the counts compare across residues and the picture is not a
+        real hydration shell. The backbone is drawn as the cell-pH zwitterion
+        and held there.
+      </p>
+      <p>
+        <b>The shells here are small, and smaller than the chemistry deserves.</b>
+        Serine's hydroxyl has two lone pairs and gets one water on this slide,
+        not two &mdash; the second position lands inside the backbone
+        carboxylate and is dropped rather than drawn somewhere false. The
+        ethanol slide in the first chapter, with nothing else in the way, gets
+        the full four bonds an &ndash;OH can manage. Take the counts here as
+        <i>what this crowded little molecule can fit</i>, not as the group's
+        capacity.
+      </p>
+      <p>
+        Coordinates are PDB Chemical Component Dictionary ideal conformers, with
+        the side-chain torsions turned to the staggered positions that leave the
+        residue least folded onto itself; bond lengths and angles are the
+        deposited ones. The backbone ammonium hydrogen is constructed. Same
+        geometric <code>2.5 Å</code> / <code>120&deg;</code> bond test and the
+        same hand-tuned sine-wave motion as the rest of the deck &mdash; not
+        physics, and nothing here repels or collides.
+      </p>    </div>
+  </section>
+</main>
+</section>
+<section class="slide" id="slide-aa-special" tabindex="-1" role="group" aria-roledescription="slide" aria-label="Special Cases — Gly, Pro, Cys, Sec">
+<div class="page">
+  <p class="eyebrow">Amino acids &rarr; the ones that do not fit</p>
+  <h1>Special Cases</h1>
+  <p class="subtitle">
+    Four residues that break the classification. One has <b>no side chain</b>.
+    One has a side chain <b>tied back onto its own backbone</b>. Two are the
+    same shape built from different elements, with pKas three units apart. The
+    pH slider is back, and it does something different for each.
+  </p>
+
+  <div class="compound-card">
+    <p class="cbody">
+      <span class="cname" id="aas-name">&mdash;</span>
+      <span id="aas-blurb"></span>
+    </p>
+  </div>
+</div>
+
+<main>
+  <section class="stage-panel">
+    <div class="stage-frame">
+      <canvas class="render-canvas" id="aas-canvas" width="620" height="620"></canvas>
+      <div class="readout">
+        <div><span class="lbl">SIDE-CHAIN H-BONDS </span><span class="num" id="aas-count">0</span></div>
+        <div><span class="lbl">SIDE CHAIN GIVES </span><span class="num" id="aas-gives">0</span></div>
+        <div><span class="lbl">SIDE CHAIN TAKES </span><span class="num" id="aas-takes">0</span></div>
+        <div><span class="lbl">CLOSE BUT TOO BENT </span><span class="num" id="aas-bent">0</span></div>
+      </div>
+      <div class="drag-hint">drag to orbit</div>
+    </div>
+
+    <div class="control">
+      <div class="control-head">
+        <label id="aas-picker-label">Side chain</label>
+      </div>
+      <div class="residue-picker" id="aas-residues" role="group" aria-labelledby="aas-picker-label"></div>
+    </div>
+
+    <div class="state-strip">
+      <span><span class="lbl">SPECIES </span><span class="val plain" id="aas-species">&mdash;</span></span>
+      <span><span class="lbl">SIDE-CHAIN CHARGE </span><span class="val" id="aas-charge">&mdash;</span></span>
+      <span><span class="lbl">SIDE-CHAIN pKa </span><span class="val" id="aas-pka">&mdash;</span></span>
+      <span><span class="lbl">CHARGED AT THIS pH </span><span class="val" id="aas-charged">&mdash;</span></span>
+      <span><span class="lbl">BACKBONE HYDROGENS </span><span class="val plain" id="aas-backbone-h">&mdash;</span></span>
+      <span><span class="lbl">HYDROPATHY </span><span class="val" id="aas-hydropathy">&mdash;</span></span>
+    </div>
+
+    <div class="controls auto">
+      <div class="control">
+        <div class="control-head">
+          <label for="aas-ph">pH</label>
+          <span class="value" id="aas-ph-value">7.4</span>
+        </div>
+        <input type="range" id="aas-ph" min="0" max="14" step="0.1" value="7.4">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="aas-amp">Brownian amplitude</label>
+          <span class="value" id="aas-amp-value">0.26 Å</span>
+        </div>
+        <input type="range" id="aas-amp" min="0" max="0.6" step="0.01" value="0.26">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="aas-tumble">Tumble</label>
+          <span class="value" id="aas-tumble-value">45°</span>
+        </div>
+        <input type="range" id="aas-tumble" min="0" max="70" step="1" value="45">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="aas-speed">Speed</label>
+          <span class="value" id="aas-speed-value">1.0×</span>
+        </div>
+        <input type="range" id="aas-speed" min="0" max="3" step="0.05" value="1">
+      </div>
+      <button class="play-toggle" id="aas-play" type="button">Pause</button>
+      <label class="toggle" for="aas-phobic">
+        <input type="checkbox" id="aas-phobic">
+        Shade the greasy part of the side chain
+      </label>
+      <label class="toggle" for="aas-show-bent">
+        <input type="checkbox" id="aas-show-bent">
+        Show contacts rejected for angle
+      </label>
+    </div>
+  </section>
+
+  <section class="legend" aria-label="Atom and bond color key">
+    <div class="legend-item"><span class="swatch" style="background:var(--c-carbon)"></span>Carbon</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-nitrogen)"></span>Nitrogen</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-oxygen)"></span>Oxygen</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-sulfur)"></span>Sulfur</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-selenium)"></span>Selenium</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-hydrogen)"></span>Hydrogen</div>
+    <div class="legend-item"><span class="swatch half"></span>Delocalised bond (one-and-a-half)</div>
+    <div class="legend-item"><span class="swatch charge-pos"></span>Positive charge</div>
+    <div class="legend-item"><span class="swatch charge-neg"></span>Negative charge</div>
+    <div class="legend-item"><span class="swatch bond" style="background:var(--accent)"></span>Hydrogen bond</div>
+    <div class="legend-item"><span class="swatch bond" style="background:#2f7d70"></span>Hydrogen bond (weak &mdash; sulfur, selenium)</div>
+    <div class="legend-item"><span class="swatch bond" style="background:#6d4b52"></span>Close, but rejected for angle</div>
+    <div class="legend-item"><span class="swatch" style="background:#7a6a4a"></span>Shaded hydrophobic surface</div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">WHAT TO LOOK FOR</span>
+    <div>
+      <p>
+        <b>Start with glycine, and move every slider.</b> Nothing happens, ever.
+        Its side chain is a single hydrogen: no lone pair, no polar hydrogen,
+        nothing to ionise. The count is not zero because a threshold is never
+        met &mdash; glycine declares no hydrogen-bonding site at all, so there
+        is nothing to count. What that buys is <b>freedom</b>: with no side
+        chain in the way the backbone can twist into angles no other residue can
+        reach, which is why collagen is one residue in three glycine and why
+        tight turns are full of it.
+      </p>
+      <p>
+        <b>Then proline, and read BACKBONE HYDROGENS.</b> It says <b>2 on N,
+        not 3</b>, and every other residue in this chapter says 3. The side
+        chain has looped round and taken one of the nitrogen's bonds for itself.
+        Put this residue inside a peptide and the count goes to <b>zero</b>:
+        proline is the only residue with no backbone N&ndash;H to donate, which
+        is why it cannot sit in the middle of an &alpha;-helix, and why it turns
+        up wherever a chain has to change direction.
+      </p>
+      <p>
+        <b>Now cysteine, and look at the colour of its bonds.</b> They come up
+        in the dim teal reserved for weak ones. Sulfur's electronegativity is
+        2.58 against oxygen's 3.44, so an S&ndash;H is barely polarised and a
+        thiol is a poor hydrogen-bond partner &mdash; serine's shape with a
+        quarter of the strength.
+      </p>
+      <p>
+        <b>Finally, put cysteine and selenocysteine side by side at pH 7.4.</b>
+        Identical shape, one atom swapped one row down, and the pKa moves from
+        <code>8.18</code> to <code>5.24</code>. At cell pH cysteine is still a
+        neutral thiol with only a trace of the reactive anion around, while
+        selenocysteine is <b>already fully ionised</b>. That is the entire
+        reason the 21st amino acid exists and gets its own translation
+        machinery: an enzyme that needs a permanently armed nucleophile cannot
+        get one from cysteine.
+      </p>    </div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">LIMITS</span>
+    <div>
+      <p>
+        <b>Cysteine's most important trick is not on this slide.</b> Two thiols
+        oxidise to a covalent S&ndash;S bridge &mdash; the one covalent bond a
+        cell makes and unmakes inside a folded protein. That needs two
+        molecules, and this slide only ever draws one; the sulfhydryl slide in
+        the previous chapter is where the bridge forms.
+      </p>
+      <p>
+        <b>Proline's real constraint is also not on this slide.</b> What the ring
+        actually locks is the backbone &phi; angle, and &phi; is defined by the
+        <i>previous</i> residue in the chain. A single free amino acid cannot
+        show it. What you can see here is the cause: the bond that would have
+        carried a hydrogen is carrying a carbon instead.
+      </p>
+      <p>
+        <b>Selenium is the deck's least-supported element.</b> Its drawn radius,
+        its water separation (<code>3.55 Å</code>) and its tabulated bond
+        strength are extrapolated one row down from sulfur rather than measured.
+        The <i>coordinates</i> are real &mdash; PDB component <code>SEC</code>
+        &mdash; but treat the shell around it as an estimate.
+      </p>
+      <p>
+        As everywhere in this chapter: only the side chain is hydrated, the
+        backbone is held at its cell-pH zwitterion, the third backbone
+        N&ndash;H is constructed, and side-chain torsions are turned to
+        staggered positions (which proline's ring, being a ring, refuses &mdash;
+        it is drawn exactly as deposited). Bond strengths are tabulated
+        ballparks, not computed from anything on screen. Same geometric bond
+        test, same hand-tuned motion.
+      </p>    </div>
+  </section>
+</main>
+</section>
+<section class="slide" id="slide-aa-nonpolar" tabindex="-1" role="group" aria-roledescription="slide" aria-label="Nonpolar Side Chains — Ala, Val, Leu, Ile, Met, Phe, Tyr, Trp">
+<div class="page">
+  <p class="eyebrow">Amino acids &rarr; nonpolar side chains &rarr; where the classification breaks</p>
+  <h1>Nonpolar, Hydrophobic Side Chains</h1>
+  <p class="subtitle">
+    Eight side chains filed under one label. Six of them never form a hydrogen
+    bond with anything, at any setting of any control &mdash; and that nothing
+    is what folds a protein. The other two <b>do</b> hydrogen bond. Click
+    through all eight and watch where the label stops being true.
+  </p>
+
+  <div class="compound-card">
+    <p class="cbody">
+      <span class="cname" id="aan-name">&mdash;</span>
+      <span id="aan-blurb"></span>
+    </p>
+  </div>
+</div>
+
+<main>
+  <section class="stage-panel">
+    <div class="stage-frame">
+      <canvas class="render-canvas" id="aan-canvas" width="620" height="620"></canvas>
+      <div class="readout">
+        <div><span class="lbl">SIDE-CHAIN H-BONDS </span><span class="num" id="aan-count">0</span></div>
+        <div><span class="lbl">SIDE CHAIN GIVES </span><span class="num" id="aan-gives">0</span></div>
+        <div><span class="lbl">SIDE CHAIN TAKES </span><span class="num" id="aan-takes">0</span></div>
+        <div><span class="lbl">CLOSE BUT TOO BENT </span><span class="num" id="aan-bent">0</span></div>
+      </div>
+      <div class="drag-hint">drag to orbit</div>
+    </div>
+
+    <div class="control">
+      <div class="control-head">
+        <label id="aan-picker-label">Side chain</label>
+      </div>
+      <div class="residue-picker" id="aan-residues" role="group" aria-labelledby="aan-picker-label"></div>
+    </div>
+
+    <div class="state-strip">
+      <span><span class="lbl">SPECIES </span><span class="val plain" id="aan-species">&mdash;</span></span>
+      <span><span class="lbl">SIDE-CHAIN CHARGE </span><span class="val" id="aan-charge">&mdash;</span></span>
+      <span><span class="lbl">SIDE-CHAIN pKa </span><span class="val" id="aan-pka">&mdash;</span></span>
+      <span><span class="lbl">HYDROPATHY </span><span class="val" id="aan-hydropathy">&mdash;</span></span>
+      <span><span class="lbl">WATERS ON GREASE </span><span class="val" id="aan-phobic-waters">&mdash;</span></span>
+    </div>
+
+    <div class="controls auto">
+      <div class="control">
+        <div class="control-head">
+          <label for="aan-amp">Brownian amplitude</label>
+          <span class="value" id="aan-amp-value">0.26 Å</span>
+        </div>
+        <input type="range" id="aan-amp" min="0" max="0.6" step="0.01" value="0.26">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="aan-tumble">Tumble</label>
+          <span class="value" id="aan-tumble-value">45°</span>
+        </div>
+        <input type="range" id="aan-tumble" min="0" max="70" step="1" value="45">
+      </div>
+      <div class="control">
+        <div class="control-head">
+          <label for="aan-speed">Speed</label>
+          <span class="value" id="aan-speed-value">1.0×</span>
+        </div>
+        <input type="range" id="aan-speed" min="0" max="3" step="0.05" value="1">
+      </div>
+      <button class="play-toggle" id="aan-play" type="button">Pause</button>
+      <label class="toggle" for="aan-phobic">
+        <input type="checkbox" id="aan-phobic">
+        Shade the greasy part of the side chain
+      </label>
+      <label class="toggle" for="aan-show-bent">
+        <input type="checkbox" id="aan-show-bent">
+        Show contacts rejected for angle
+      </label>
+    </div>
+  </section>
+
+  <section class="legend" aria-label="Atom and bond color key">
+    <div class="legend-item"><span class="swatch" style="background:var(--c-carbon)"></span>Carbon</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-nitrogen)"></span>Nitrogen</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-oxygen)"></span>Oxygen</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-sulfur)"></span>Sulfur</div>
+    <div class="legend-item"><span class="swatch" style="background:var(--c-hydrogen)"></span>Hydrogen</div>
+    <div class="legend-item"><span class="swatch half"></span>Delocalised bond (one-and-a-half)</div>
+    <div class="legend-item"><span class="swatch bond" style="background:var(--accent)"></span>Hydrogen bond</div>
+    <div class="legend-item"><span class="swatch bond" style="background:#2f7d70"></span>Hydrogen bond (weak &mdash; sulfur, selenium)</div>
+    <div class="legend-item"><span class="swatch bond" style="background:#6d4b52"></span>Close, but rejected for angle</div>
+    <div class="legend-item"><span class="swatch" style="background:#7a6a4a"></span>Shaded hydrophobic surface</div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">WHAT TO LOOK FOR</span>
+    <div>
+      <p>
+        <b>Start at alanine and walk to isoleucine.</b> The side chain grows from
+        one carbon to four, the shaded surface grows with it, more waters park
+        against it &mdash; and SIDE-CHAIN H-BONDS stays at <b>0</b> the whole
+        way. Push the amplitude to maximum and it stays at zero. There is
+        nothing there to bond to.
+      </p>
+      <p>
+        <b>That zero is the strongest force in protein folding.</b> Water cannot
+        hydrogen bond to a hydrocarbon, so the waters beside one have to satisfy
+        their bonds among <i>themselves</i>, in a more ordered arrangement than
+        bulk water would take. Order costs entropy, and the cheapest way for the
+        system to pay less of it is to shove the greasy surfaces together, out
+        of the water. That shove builds every protein core and every membrane
+        you have. Compare HYDROPATHY across the eight: isoleucine at
+        <code>+4.5</code> is the residue water pushes hardest.
+      </p>
+      <p>
+        <b>Now click methionine and watch its sulfur for a few seconds.</b> A
+        bond blinks in and out there &mdash; in the dim teal the deck reserves
+        for weak ones, lit maybe a third of the time. A thioether really is a
+        hydrogen-bond acceptor, just a feeble and unreliable one. Methionine is
+        filed as nonpolar and that is not <i>quite</i> true; it is the first
+        crack in this slide's label, and the next two chips are the rest of it.
+      </p>
+      <p>
+        <b>Then phenylalanine, tyrosine, tryptophan &mdash; the three big flat
+        ones.</b> Phenylalanine's ring does nothing, as advertised. Add one
+        oxygen to the far edge of that ring and you have tyrosine, which both
+        gives and takes, ionises at pKa 10.07, and whose hydropathy has flipped
+        from <code>+2.8</code> to <code>&minus;1.3</code>. Tryptophan gives a
+        bond from its ring N&ndash;H and never takes one, because that
+        nitrogen's lone pair is spent holding the aromatic system together.
+      </p>
+      <p>
+        <b>So the last three chips on this slide disagree with the label above
+        them.</b> That is worth more than a tidy chart: the four-way
+        classification is a useful summary of a continuum, and this is where you
+        can see the seam. A residue's behaviour comes from the atoms it is made
+        of, not from the box it was filed in.
+      </p>    </div>
+  </section>
+
+  <section class="limits">
+    <span class="mark">LIMITS</span>
+    <div>
+      <p>
+        <b>The hydrophobic effect itself is not modelled here.</b> The waters at
+        a greasy surface are placed at van der Waals contact and jiggled exactly
+        like every other water on screen. Real waters against a hydrophobic
+        surface adopt tangential orientations so they can keep hydrogen bonding
+        to each other, and it is the entropy cost of that ordering that does the
+        pushing. None of it appears in this picture. What you can see is the
+        <b>precondition</b> &mdash; the absence of a bond. The force is a
+        statistical, entropic thing no single-molecule snapshot can show.
+      </p>
+      <p>
+        <b>Hydropathy is a tabulated lookup</b> (Kyte &amp; Doolittle, 1982),
+        not computed from anything on screen. It is one of several published
+        scales and they disagree with each other in the details; the ordering is
+        the part to trust.
+      </p>
+      <p>
+        Aromatic rings are drawn with one-and-a-half bonds rather than the
+        alternating single/double the CIF files record, because a ring's
+        electrons are not arranged in one Kekul&eacute; structure &mdash; the
+        file has to pick one and the picture does not have to agree.
+      </p>
+      <p>
+        As everywhere in this chapter: only the side chain is hydrated, the
+        backbone is held at its cell-pH zwitterion, the third backbone
+        N&ndash;H is constructed, and side-chain torsions are turned to the
+        staggered positions that leave the residue least folded onto itself
+        &mdash; aromatic rings, being rings, are drawn exactly as deposited.
+        Tyrosine's pKa of 10.07 is reported but not drawn: this slide has no pH
+        slider, so tyrosine is always shown in its neutral form.
+      </p>    </div>
   </section>
 </main>
 </section>

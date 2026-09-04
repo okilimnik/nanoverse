@@ -79,22 +79,54 @@
 ;; navigation
 ;; ---------------------------------------------------------------------
 
+(defn- el+ [parent tag class text]
+  (let [e (js/document.createElement tag)]
+    (set! (.-className e) class)
+    (when text (set! (.-textContent e) text))
+    (.appendChild parent e)
+    e))
+
 (defn mount!
-  "Wire up a deck of slides. Each spec is
-     {:section-id \"slide-hydroxyl\" :prefix \"oh-\" :label \"Hydroxyl\" :build (fn [prefix] handle)}
-   Slides are built lazily, on first visit, so an unopened slide never
-   creates a WebGL context."
-  [slides]
-  (let [built (atom {})
+  "Wire up a deck of slides grouped into chapters. Each chapter is
+
+     {:title \"Functional groups\" :blurb \"...\" :slides [spec ...]}
+
+   and each slide spec is
+
+     {:section-id \"slide-hydroxyl\" :prefix \"oh-\" :label \"Hydroxyl in Water\"
+      :nav \"Hydroxyl\" :build (fn [prefix] handle)}
+
+   Chapters exist because the deck outgrew a single row of anonymous dots. The
+   side menu is the map of the whole thing and is always the same; the dots
+   shrink to just the CURRENT chapter, so they stay a position indicator
+   rather than becoming a second, worse menu.
+
+   Slides are still built lazily, on first visit, so an unopened slide never
+   creates a WebGL context -- which matters more now that there are twelve of
+   them."
+  [chapters]
+  (let [slides (vec (mapcat (fn [[ci ch]]
+                              (map (fn [s] (assoc s :chapter ci)) (:slides ch)))
+                            (map-indexed vector chapters)))
+        n (count slides)
+        built (atom {})
         current (atom nil)
+        nav-items (atom [])
         prev-btn (js/document.getElementById "deck-prev")
         next-btn (js/document.getElementById "deck-next")
+        menu-btn (js/document.getElementById "deck-menu")
+        nav-el (js/document.getElementById "deck-nav")
+        scrim (js/document.getElementById "deck-scrim")
         dots-el (js/document.getElementById "deck-dots")
         pos-el (js/document.getElementById "deck-position")
-        n (count slides)
-        section (fn [i] (js/document.getElementById (:section-id (nth slides i))))]
+        chapter-el (js/document.getElementById "deck-chapter")
+        section (fn [i] (js/document.getElementById (:section-id (nth slides i))))
+        ;; global index of the first slide in each chapter, so a slide can be
+        ;; numbered within its own chapter rather than within the deck
+        starts (reduce (fn [acc ch] (conj acc (+ (last acc) (count (:slides ch)))))
+                       [0] chapters)]
 
-    ;; one dot per slide, clickable
+    ;; one dot per slide, clickable; only the current chapter's are shown
     (dotimes [i n]
       (let [d (js/document.createElement "button")]
         (set! (.-className d) "dot")
@@ -102,25 +134,49 @@
         (.setAttribute d "aria-label" (str "Go to " (:label (nth slides i))))
         (.appendChild dots-el d)))
 
-    (letfn [(activate! [i]
+    (letfn [(close-menu! []
+              (set! (.-className nav-el) "deck-nav")
+              (when scrim (set! (.-hidden scrim) true))
+              (when menu-btn (.setAttribute menu-btn "aria-expanded" "false")))
+            (toggle-menu! []
+              (if (= (.-className nav-el) "deck-nav open")
+                (close-menu!)
+                (do (set! (.-className nav-el) "deck-nav open")
+                    (when scrim (set! (.-hidden scrim) false))
+                    (when menu-btn (.setAttribute menu-btn "aria-expanded" "true")))))
+
+            (activate! [i]
               (when-not (= i @current)
                 (when-let [c @current]
                   ((:stop (get @built c)))
                   (set! (.-className (section c)) "slide"))
-                (let [sec (section i)]
+                (let [sec (section i)
+                      spec (nth slides i)
+                      ci (:chapter spec)
+                      start (nth starts ci)
+                      len (count (:slides (nth chapters ci)))]
                   ;; visible before build/start, so the canvas has a real size
                   (set! (.-className sec) "slide active")
                   (when-not (get @built i)
-                    (let [spec (nth slides i)]
-                      (swap! built assoc i ((:build spec) (:prefix spec)))))
+                    (swap! built assoc i ((:build spec) (:prefix spec))))
                   ((:start (get @built i)))
                   (reset! current i)
-                  (set! (.-textContent pos-el) (str (inc i) " / " n))
+                  (set! (.-textContent pos-el) (str (inc (- i start)) " / " len))
+                  (when chapter-el
+                    (set! (.-textContent chapter-el) (:title (nth chapters ci))))
                   (dotimes [j n]
                     (set! (.-className (aget (.-children dots-el) j))
-                          (str "dot" (if (= j i) " on" ""))))
+                          (str "dot"
+                               (if (= (:chapter (nth slides j)) ci) "" " off")
+                               (if (= j i) " on" ""))))
+                  (dotimes [j (count @nav-items)]
+                    (set! (.-className (nth @nav-items j))
+                          (str "nav-item" (if (= j i) " on" ""))))
+                  (close-menu!)
                   (.focus sec #js {:preventScroll true}))))
+
             (step! [d] (activate! (mod (+ @current d) n)))
+
             ;; Squint compiles `dotimes` to a single `let i = 0` hoisted OUT of
             ;; the loop, so a closure made inside one captures the shared
             ;; binding and sees its final value (n) once the loop ends. Binding
@@ -128,10 +184,32 @@
             ;; each handler its own copy.
             (bind-dot! [i]
               (.addEventListener (aget (.-children dots-el) i) "click"
-                                 (fn [] (activate! i))))]
+                                 (fn [] (activate! i))))
+            (nav-item! [i spec group]
+              (let [b (el+ group "button" "nav-item" nil)]
+                (set! (.-type b) "button")
+                (el+ b "span" "nav-num" (str (inc i)))
+                (el+ b "span" "nav-text" (or (:nav spec) (:label spec)))
+                (.addEventListener b "click" (fn [] (activate! i)))
+                b))]
+
+      ;; the side menu: the whole deck, laid out by chapter
+      (when nav-el
+        (el+ nav-el "p" "nav-brand" "nanoverse")
+        (reset! nav-items
+                (vec (mapcat (fn [[ci ch]]
+                               (let [sec (el+ nav-el "div" "nav-chapter" nil)
+                                     start (nth starts ci)]
+                                 (el+ sec "h2" "nav-title" (:title ch))
+                                 (when (:blurb ch) (el+ sec "p" "nav-blurb" (:blurb ch)))
+                                 (mapv (fn [[k spec]] (nav-item! (+ start k) spec sec))
+                                       (map-indexed vector (:slides ch)))))
+                             (map-indexed vector chapters)))))
 
       (.addEventListener prev-btn "click" (fn [] (step! -1)))
       (.addEventListener next-btn "click" (fn [] (step! 1)))
+      (when menu-btn (.addEventListener menu-btn "click" (fn [] (toggle-menu!))))
+      (when scrim (.addEventListener scrim "click" (fn [] (close-menu!))))
 
       (dotimes [i n] (bind-dot! i))
 
@@ -140,10 +218,11 @@
       (js/window.addEventListener "keydown"
         (fn [e]
           (let [tag (.-tagName (.-target e))]
-            (when-not (or (= tag "INPUT") (= tag "TEXTAREA"))
-              (cond
-                (= (.-key e) "ArrowLeft") (do (.preventDefault e) (step! -1))
-                (= (.-key e) "ArrowRight") (do (.preventDefault e) (step! 1)))))))
+            (cond
+              (= (.-key e) "Escape") (close-menu!)
+              (or (= tag "INPUT") (= tag "TEXTAREA")) nil
+              (= (.-key e) "ArrowLeft") (do (.preventDefault e) (step! -1))
+              (= (.-key e) "ArrowRight") (do (.preventDefault e) (step! 1))))))
 
       (js/window.addEventListener "resize"
         (fn [] (when-let [c @current] (.resize (:engine (get @built c))))))
