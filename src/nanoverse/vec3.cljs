@@ -19,6 +19,8 @@
 
 (defn len [a] (js/Math.sqrt (dot a a)))
 
+(defn dist [a b] (len (sub a b)))
+
 (defn norm [a]
   (let [l (len a)]
     (if (zero? l) {:x 0 :y 0 :z 0} (scale a (/ 1 l)))))
@@ -53,3 +55,23 @@
         v (norm (sub c b))
         c* (js/Math.max -1 (js/Math.min 1 (dot u v)))]
     (/ (* (js/Math.acos c*) 180) js/Math.PI)))
+
+(defn dihedral-deg
+  "Signed torsion angle of the path a-b-c-d, in degrees, in (-180, 180].
+
+   Measured looking down the b->c bond: how far d is rotated away from a.
+   This is what a side chain's chi angles are, and it is the one number that
+   distinguishes two conformers built from identical bond lengths and angles."
+  [a b c d]
+  (let [b1 (sub b a)
+        b2 (sub c b)
+        b3 (sub d c)
+        n1 (cross b1 b2)
+        n2 (cross b2 b3)
+        m1 (cross n1 (norm b2))
+        x (dot n1 n2)
+        y (dot m1 n2)]
+    ;; negated: atan2(y,x) alone comes out left-handed about b->c, which would
+    ;; disagree with both the IUPAC sign convention and with rotating the far
+    ;; end by quat-axis-angle about that same axis
+    (- (/ (* (js/Math.atan2 y x) 180) js/Math.PI))))

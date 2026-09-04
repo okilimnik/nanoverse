@@ -21,11 +21,13 @@
 ;; Drawn radii. Not van der Waals radii -- ball-and-stick spheres that size
 ;; would swallow the bonds -- but ordered like them, so sulfur and phosphorus
 ;; read as the big atoms they are next to oxygen and nitrogen.
-(def R {:C 0.32 :O 0.34 :N 0.33 :S 0.44 :P 0.44 :H 0.20})
+(def R {:C 0.32 :O 0.34 :N 0.33 :S 0.44 :P 0.44 :SE 0.48 :H 0.20})
 
-;; CPK-ish, matched to the palette the deck already uses for C/O/H.
+;; CPK-ish, matched to the palette the deck already uses for C/O/H. Selenium
+;; is drawn as a heavier, browner sulfur, which is roughly what it is.
 (def ELEMENT-COLOR
-  {:C "#4b4f58" :O "#e2555a" :N "#5b7fd4" :S "#e3c04a" :P "#e8894a" :H "#eef1f4"})
+  {:C "#4b4f58" :O "#e2555a" :N "#5b7fd4" :S "#e3c04a" :P "#e8894a"
+   :SE "#b8862b" :H "#eef1f4"})
 
 (def BOND-RADIUS 0.045)
 (def HBOND-RADIUS 0.035)

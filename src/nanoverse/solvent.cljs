@@ -31,19 +31,25 @@
 ;; enough never to bond. Pulling it in much below this starts losing waters to
 ;; the clash filter on a crowded molecule like alanine, and the crowd is the
 ;; whole point of drawing them.
-(def OO-POLAR {:O 2.85 :N 2.90 :S 3.40})
+(def OO-POLAR {:O 2.85 :N 2.90 :S 3.40 :SE 3.55})
 (def OO-PHOBIC 3.75)
+
+;; How much further out `hydrate` may push a water whose ideal spot is already
+;; taken, before it gives up on that site entirely. Half an angstrom is the
+;; difference between a good hydrogen bond and a long one, not the difference
+;; between a bond and no bond.
+(def OO-RETRY [0 0.25 0.50])
 
 (defn polar-oo [atoms k]
   (get OO-POLAR (:e (get atoms k)) 2.85))
 
 ;; Standard X-H bond lengths, for hydrogens we have to construct rather than
 ;; read out of a deposited structure.
-(def XH-LEN {:N 1.010 :O 0.970 :S 1.340 :C 1.090})
+(def XH-LEN {:N 1.010 :O 0.970 :S 1.340 :SE 1.470 :C 1.090})
 
 ;; van der Waals radii (angstrom), used only to keep auto-placed waters from
 ;; being dropped inside the molecule.
-(def VDW {:H 1.20 :C 1.70 :N 1.55 :O 1.52 :P 1.80 :S 1.80})
+(def VDW {:H 1.20 :C 1.70 :N 1.55 :O 1.52 :P 1.80 :S 1.80 :SE 1.90})
 
 ;; ---------------------------------------------------------------------
 ;; Seeded noise
@@ -132,6 +138,60 @@
                                              (v/scale (:e3 dst) (nth local 2))))))])))))
 
 ;; ---------------------------------------------------------------------
+;; Turning a single bond
+;;
+;; A deposited "ideal" conformer is ONE low-energy pose out of many, and it is
+;; often curled: a side chain folded back over its own backbone, close enough
+;; that a hydration shell cannot be placed where the chemistry says it should
+;; go. Rotating about a real single bond fixes that WITHOUT inventing
+;; anything -- every bond length and every bond angle in the file survives
+;; untouched, and only the one torsion is chosen. Which torsion, and to what
+;; value, is then a claim the slide has to make out loud.
+;; ---------------------------------------------------------------------
+
+(defn branch-keys
+  "Atoms reachable from `b` without passing back through `a`, as a set.
+
+   nil when the walk finds its way back to `a` -- that means a and b sit in a
+   ring, the bond between them does not turn, and asking to rotate it is a
+   question with no answer. Proline is why this returns nil rather than
+   throwing."
+  [bonds a b]
+  (loop [seen {b true} frontier [b]]
+    (if (empty? frontier)
+      ;; `a` is only reachable if some OTHER path leads back to it, since the
+      ;; one bond we refuse to walk is a-b itself
+      (when-not (get seen a) seen)
+      (let [nxt (vec (distinct
+                       (remove #(get seen %)
+                               (mapcat (fn [x]
+                                         (let [ns (neighbours bonds x)]
+                                           (if (= x b) (remove #(= % a) ns) ns)))
+                                       frontier))))]
+        (recur (reduce (fn [m k] (assoc m k true)) seen nxt) nxt)))))
+
+(defn set-torsion
+  "Rotate everything on the far side of the b-c bond so the a-b-c-d torsion
+   reads `target` degrees. A no-op if any of the four atoms is missing, or if
+   b and c are in a ring."
+  [state [a b c d] target]
+  (let [atoms (:atoms state)
+        branch (when (every? #(some? (get atoms %)) [a b c d])
+                 (branch-keys (:bonds state) b c))]
+    (if (nil? branch)
+      state
+      (let [cur (v/dihedral-deg (get atoms a) (get atoms b) (get atoms c) (get atoms d))
+            axis (v/norm (v/sub (get atoms c) (get atoms b)))
+            q (v/quat-axis-angle axis (deg->rad (- target cur)))
+            o (get atoms b)]
+        (assoc state :atoms
+               (into {} (for [k (keys atoms)]
+                          [k (if (get branch k)
+                               (merge (get atoms k)
+                                      (v/add o (v/rotate q (v/sub (get atoms k) o))))
+                               (get atoms k))])))))))
+
+;; ---------------------------------------------------------------------
 ;; Protonation
 ;; ---------------------------------------------------------------------
 
@@ -179,16 +239,42 @@
   (let [ref (if (> (js/Math.abs (:y u)) 0.9) {:x 1 :y 0 :z 0} {:x 0 :y 1 :z 0})]
     (v/norm (v/cross u ref))))
 
+(defn bond-order
+  "The order of the bond between a and b, or nil if they are not bonded."
+  [bonds a b]
+  (:order (first (filter #(or (and (= (:a %) a) (= (:b %) b))
+                              (and (= (:a %) b) (= (:b %) a)))
+                         bonds))))
+
+(defn- delocalised?
+  "Is atom k part of a pi system? True when any bond at it has an order other
+   than 1 -- a real double bond, or the one-and-a-half this deck draws for an
+   aromatic ring or a shared charge.
+
+   Read off the bond-order column rather than declared per slide, so a
+   hybridisation claim is always backed by something in the structure file."
+  [bonds k]
+  (boolean (some #(and (or (= (:a %) k) (= (:b %) k)) (not= (:order %) 1)) bonds)))
+
 (defn lone-pair-dirs
   "Unit vectors pointing out of atom `k` along its lone pairs.
 
-   - two neighbours (an -OH oxygen, an -SH sulfur, an ester oxygen): sp3, two
-     pairs at +/- 54.75 deg off the reverse bisector
+   How many, and where, is decided by the neighbour count and by whether the
+   atom's own bonds say it is part of a pi system:
+
+   - two neighbours, all single bonds (an -OH oxygen, an -SH sulfur, an ester
+     oxygen): sp3, two pairs at +/- 54.75 deg off the reverse bisector
+   - two neighbours, at least one delocalised (histidine's free ring
+     nitrogen): sp2, ONE pair, lying in the ring plane along the reverse
+     bisector. The sp3 answer would put waters above and below a plane where
+     there is no lone pair at all.
    - three neighbours (an amine nitrogen): sp3, the single remaining vertex
-   - one neighbour that is a carbon (a carbonyl oxygen): sp2, two pairs at
-     +/- 60 deg in the plane the carbon's own substituents define
-   - one neighbour that is not a carbon (a phosphate oxygen): the pairs fan
-     out on a cone rather than lying in a plane, so three are offered"
+   - one neighbour, a carbon, joined by a delocalised bond (a carbonyl or
+     carboxylate oxygen): sp2, two pairs at +/- 60 deg in the plane the
+     carbon's own substituents define
+   - anything else with one neighbour (a phosphate oxygen, a thiolate sulfur
+     on an sp3 carbon): the pairs fan out on a cone rather than lying in a
+     plane, so three are offered"
   [atoms bonds k]
   (let [p (get atoms k)
         nbrs (neighbours bonds k)
@@ -201,14 +287,18 @@
       (= n 2)
       (let [away (v/norm (v/scale (v/add (nth us 0) (nth us 1)) -1))
             axis (v/norm (v/cross (nth us 0) (nth us 1)))]
-        [(rot axis TETRAHEDRAL-HALF away) (rot axis (- TETRAHEDRAL-HALF) away)])
+        (if (delocalised? bonds k)
+          [away]
+          [(rot axis TETRAHEDRAL-HALF away) (rot axis (- TETRAHEDRAL-HALF) away)]))
 
       (= n 1)
       (let [nb (nth nbrs 0)
             axis (v/scale (nth us 0) -1)                    ; neighbour -> k, extended
             others (vec (remove #(= % k) (neighbours bonds nb)))
             heavy-other (first (filter #(heavy? atoms %) others))]
-        (if (and (= (:e (get atoms nb)) :C) heavy-other)
+        (if (and (= (:e (get atoms nb)) :C)
+                 heavy-other
+                 (not= (bond-order bonds k nb) 1))
           ;; sp2: both pairs lie in the plane through k, its neighbour, and
           ;; that neighbour's other substituent
           (let [normal (v/norm (v/cross (v/sub (get atoms heavy-other) (get atoms nb))
@@ -322,10 +412,25 @@
   (let [{:keys [atoms bonds acceptors donors]} state
         rng (mulberry32 seed)]
     (letfn [(add [placed nm site role away anchor oo skip]
-              (let [base-o (v/add (get atoms anchor) (v/scale away oo))]
-                (if (clashes? atoms placed base-o skip)
+              ;; If the ideal separation is blocked, try the same direction a
+              ;; little further out before giving up. A water at 3.3 A instead
+              ;; of 2.85 is still a first-shell water on a longer, weaker bond
+              ;; -- whereas a candidate silently dropped is a site the picture
+              ;; then claims does nothing, which is a much bigger lie. Crowded
+              ;; small molecules (an amide next to its own backbone) need this;
+              ;; roomy ones never reach past the first rung.
+              ;;
+              ;; make-water is still called exactly once per water placed, so
+              ;; the 17-draw RNG stride is unchanged.
+              (let [slack (first (remove nil?
+                                         (map (fn [d]
+                                                (let [b (v/add (get atoms anchor) (v/scale away (+ oo d)))]
+                                                  (when-not (clashes? atoms placed b skip) d)))
+                                              OO-RETRY)))]
+                (if (nil? slack)
                   placed
-                  (conj placed (make-water rng nm site role away base-o)))))]
+                  (conj placed (make-water rng nm site role away
+                                           (v/add (get atoms anchor) (v/scale away (+ oo slack))))))))]
       (let [;; Waters that ACCEPT one of our polar hydrogens, straight out along
             ;; the real X-H bond. These go FIRST, and the order matters: a
             ;; donor's water has exactly one place it can be, fixed by a
@@ -430,7 +535,11 @@
 ;; TABULATED literature ballparks, NOT computed from the geometry on screen --
 ;; they exist so a slide can say out loud that a distance-and-angle test
 ;; cannot tell a strong bond from a weak one.
-(def STRENGTH {"O>O" 21 "O>N" 20 "N>O" 17 "N>N" 13 "S>O" 7 "O>S" 6 "S>S" 4})
+(def STRENGTH {"O>O" 21 "O>N" 20 "N>O" 17 "N>N" 13
+               "S>O" 7 "O>S" 6 "S>S" 4
+               ;; selenium is bigger and softer again than sulfur, and a
+               ;; Se-H bond is barely polarised at all
+               "SE>O" 5 "O>SE" 5})
 
 (defn strength-of [pair]
   (let [[d a] (:pair-e pair)]
